@@ -1,15 +1,22 @@
 # autoresearch_regression
 
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/pranavkantgaur/autoresearch_regession)
+
 Autonomous hyperparameter-optimisation research tool for **regression tasks**,
 inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch).
 
 Point it at an Excel spreadsheet (any number of input features, one output
-column), connect it to your on-premise LLM running behind
-[vllm](https://github.com/vllm-project/vllm), and let it run overnight.  It
-will autonomously try different model architectures (Random Forest, Gradient
-Boosting, XGBoost, LightGBM, …) and hyperparameter combinations, logging every
-experiment to `results.tsv`, and keeping only the changes that improve
-validation RMSE.
+column), and let it run overnight.  It autonomously tries different model
+architectures (Random Forest, Gradient Boosting, XGBoost, LightGBM, …) and
+hyperparameter combinations, logging every experiment to `results.tsv`, keeping
+only changes that improve validation RMSE.
+
+**Two LLM backends are supported — pick the one that suits you:**
+
+| Backend | When to use | Setup |
+|---------|-------------|-------|
+| **GitHub Models** *(default)* | You have GitHub Copilot Pro / Free and want a zero-config setup — especially in Codespaces | `GITHUB_TOKEN` is auto-injected in Codespaces; add a PAT locally |
+| **On-premise vllm** | You have your own GPU server | Pass `--base-url` |
 
 ---
 
@@ -22,11 +29,10 @@ The repo has the same three-file philosophy as the original autoresearch:
 | `prepare.py` | **Fixed.** Loads any Excel/CSV dataset, handles preprocessing (encoding, scaling, missing values), performs a reproducible 70/15/15 train/val/test split, and exposes the `evaluate()` function. **Do not modify.** |
 | `train.py` | **Agent edits this.** Declares `MODEL_TYPE`, all hyperparameter dicts, and the training loop. Everything here is fair game. |
 | `program.md` | **You edit this.** Lightweight instructions given to the LLM agent as its "skill file". |
-| `run_agent.py` | **Connects to your vllm server** and runs the autonomous experiment loop. |
+| `run_agent.py` | **Runs the autonomous loop.** Calls GitHub Models or vllm, modifies `train.py`, evaluates, keeps/reverts with git. |
 
 The metric the agent optimises is **`val_rmse`** (validation root mean squared
-error) — lower is better.  The agent keeps a change if it lowers `val_rmse`
-and discards it (via `git checkout HEAD -- train.py`) otherwise.
+error) — lower is better.
 
 ---
 
@@ -41,73 +47,115 @@ and discards it (via `git checkout HEAD -- train.py`) otherwise.
 | `ridge` | scikit-learn `Ridge` |
 | `lasso` | scikit-learn `Lasso` |
 
-The agent can also combine models (ensembles, stacking) by modifying
-`train.py`.
+The agent can also combine models (ensembles, stacking) by modifying `train.py`.
 
 ---
 
-## Quick start
+## Option A — GitHub Copilot Pro in GitHub Codespaces *(recommended)*
 
-### 1 · Install dependencies
+### 1 · Open in Codespaces
 
-```bash
-pip install -r requirements.txt
-```
+Click the badge at the top of this README, or go to
+**Code → Codespaces → Create codespace on this branch**.
+
+Python dependencies are installed automatically on container creation.
+`GITHUB_TOKEN` is injected automatically — no extra setup required.
 
 ### 2 · Prepare your dataset
 
-**Option A — Use your own Excel file:**
+**Use your own Excel file** — upload it via the VS Code explorer, then:
 ```bash
-export DATASET_PATH=/path/to/your_data.xlsx
-export TARGET_COLUMN=price          # name of the column to predict
-python prepare.py                   # verifies the dataset
+export DATASET_PATH=data/my_data.xlsx
+export TARGET_COLUMN=price        # name of the column to predict
+python prepare.py                 # verifies the dataset
 ```
 
-Your Excel file can have any number of numeric or categorical input columns.
-The tool will auto-encode categoricals and impute missing values.
-
-**Option B — Use the built-in sample dataset:**
+**Or use the built-in sample dataset:**
 ```bash
 python prepare.py --generate-sample
 # creates data/sample_dataset.xlsx  (2000 rows, 10 features)
 ```
 
-### 3 · Run a single experiment manually (optional smoke test)
+### 3 · Run a single experiment manually (smoke test)
 
 ```bash
 python train.py
 ```
 
-Output:
-```
----
-val_rmse:         45.107748
-val_mae:          36.539691
-val_r2:           0.652073
-train_rmse:       16.969422
-train_r2:         0.946814
-test_rmse:        44.822993
-test_r2:          0.640765
-train_seconds:    0.3
-model_type:       random_forest
-n_features:       10
-```
-
 ### 4 · Start the autonomous agent
 
 ```bash
+# Uses gpt-4o-mini via GitHub Models by default
 python run_agent.py \
-    --base-url http://localhost:8000/v1 \
+    --dataset data/sample_dataset.xlsx \
+    --target target \
+    --max-iterations 50
+```
+
+To use a more powerful model (uses more of your Copilot quota):
+```bash
+python run_agent.py --model gpt-4o --max-iterations 50
+```
+
+Available GitHub Models for code tasks:
+- `gpt-4o-mini` *(default — fast, free tier, good results)*
+- `gpt-4o` *(higher quality suggestions)*
+- `Meta-Llama-3.1-70B-Instruct`
+- `Meta-Llama-3.1-8B-Instruct` *(fastest)*
+
+See the full list at <https://github.com/marketplace/models>.
+
+---
+
+## Option B — GitHub Copilot Pro locally (PAT)
+
+If you want to run on your local machine without Codespaces:
+
+1. Create a GitHub Personal Access Token with **`models:read`** scope at
+   <https://github.com/settings/tokens>.
+2. Export it:
+   ```bash
+   export GITHUB_TOKEN=ghp_...
+   ```
+3. Run the agent — it will auto-detect the token and use GitHub Models:
+   ```bash
+   python run_agent.py \
+       --dataset data/sample_dataset.xlsx \
+       --target target
+   ```
+
+---
+
+## Option C — On-premise vllm
+
+If you have your own GPU server running vllm:
+
+```bash
+python run_agent.py \
+    --base-url http://YOUR_SERVER:8000/v1 \
     --model mistralai/Mistral-7B-Instruct-v0.3 \
     --dataset data/sample_dataset.xlsx \
     --target target \
     --max-iterations 100
 ```
 
+> **Models that work well:** Any instruction-tuned model (Mistral, LLaMA 3,
+> Qwen, Phi-3) capable of writing and modifying Python code.  Larger models
+> (≥13 B) tend to make more meaningful hyperparameter suggestions.
+
+---
+
+## All CLI arguments
+
+```bash
+python run_agent.py [options]
+```
+
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `--base-url` | `http://localhost:8000/v1` | vllm OpenAI-compatible endpoint |
-| `--model` | *(required)* | Model name as served by vllm |
+| `--base-url` | `https://models.inference.ai.azure.com` if `GITHUB_TOKEN` set, else `http://localhost:8000/v1` | LLM endpoint URL |
+| `--model` | `gpt-4o-mini` (GitHub Models) | Model name |
+| `--api-key` | `GITHUB_TOKEN` env var | API key (auto-resolved; rarely needed) |
 | `--dataset` | `data/sample_dataset.xlsx` | Path to Excel or CSV file |
 | `--target` | `target` | Target column name |
 | `--max-iterations` | `100` | Number of experiment iterations |
@@ -115,8 +163,9 @@ python run_agent.py \
 | `--max-tokens` | `4096` | Max tokens in LLM response |
 
 All arguments can also be set via environment variables:
-`VLLM_BASE_URL`, `VLLM_MODEL`, `DATASET_PATH`, `TARGET_COLUMN`,
-`MAX_ITERATIONS`, `LLM_TEMPERATURE`, `VLLM_API_KEY`.
+`GITHUB_TOKEN`, `GITHUB_MODELS_MODEL`, `VLLM_BASE_URL`, `VLLM_MODEL`,
+`VLLM_API_KEY`, `DATASET_PATH`, `TARGET_COLUMN`, `MAX_ITERATIONS`,
+`LLM_TEMPERATURE`.
 
 ---
 
@@ -126,30 +175,14 @@ All arguments can also be set via environment variables:
 prepare.py             — data loading, preprocessing, evaluation  (do not modify)
 train.py               — model, hyperparameters, training loop    (agent modifies this)
 program.md             — agent instructions
-run_agent.py           — autonomous LLM agent loop
+run_agent.py           — autonomous LLM agent loop (GitHub Models or vllm)
+.devcontainer/
+  devcontainer.json    — Codespaces / Dev Container configuration
 data/
   sample_dataset.xlsx  — sample regression dataset (2000 rows, 10 features)
 results.tsv            — experiment log (tab-separated)
 requirements.txt       — Python dependencies
 ```
-
----
-
-## Connecting to an on-premise LLM (vllm)
-
-Start your vllm server as usual:
-```bash
-python -m vllm.entrypoints.openai.api_server \
-    --model mistralai/Mistral-7B-Instruct-v0.3 \
-    --port 8000
-```
-
-`run_agent.py` uses the OpenAI Python client pointed at your local endpoint —
-no API key required for most vllm deployments.  Pass `--base-url` accordingly.
-
-> **Models that work well:** Any instruction-tuned model (Mistral, LLaMA 3,
-> Qwen, Phi-3) capable of writing and modifying Python code.  Larger models
-> (≥13 B) tend to make more meaningful hyperparameter suggestions.
 
 ---
 
@@ -203,10 +236,11 @@ python train.py   # XGBoost best model
 
 1. Export your Excel sheet with input features in any columns and the target
    in one column (e.g. `price`, `yield`, `score`).
-2. Set `DATASET_PATH` and `TARGET_COLUMN` before running.
-3. Categorical columns are automatically one-hot encoded.
-4. Missing values are imputed with column means.
-5. All feature scaling is handled by `prepare.py`.
+2. Upload the file to the repo (or mount it in your Codespace).
+3. Set `DATASET_PATH` and `TARGET_COLUMN` before running.
+4. Categorical columns are automatically one-hot encoded.
+5. Missing values are imputed with column means.
+6. All feature scaling is handled by `prepare.py`.
 
 There is no limit on the number of features — the `n_features` value is
 printed at the start of every run.

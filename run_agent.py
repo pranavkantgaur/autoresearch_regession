@@ -1,28 +1,52 @@
 """
 Autonomous regression research agent.
 
-Connects to an on-premise LLM running behind vllm (OpenAI-compatible API)
-and runs the autoresearch experiment loop for regression hyperparameter
-optimisation.
+Supports two LLM backends:
 
-Usage:
-    python run_agent.py \\
-        --base-url http://localhost:8000/v1 \\
-        --model mistralai/Mistral-7B-Instruct-v0.3 \\
-        --dataset data/sample_dataset.xlsx \\
-        --target target \\
-        --max-iterations 100
+  1. **GitHub Models** (default when running in GitHub Codespaces or whenever
+     GITHUB_TOKEN is set).  Powered by your GitHub Copilot Pro / Free
+     subscription — no additional API key required.
 
-Environment variable equivalents:
-    VLLM_BASE_URL   — base URL of the vllm server (default: http://localhost:8000/v1)
-    VLLM_MODEL      — model name to use
-    DATASET_PATH    — path to Excel/CSV dataset
-    TARGET_COLUMN   — name of the target column
-    VLLM_API_KEY    — API key (optional; most local vllm deployments don't need one)
+     The agent calls the GitHub Models OpenAI-compatible endpoint:
+       https://models.inference.ai.azure.com
+
+     Usage in Codespaces (GITHUB_TOKEN is injected automatically):
+       python run_agent.py \\
+           --dataset data/sample_dataset.xlsx \\
+           --target target
+
+     Usage locally (create a PAT with models:read scope):
+       export GITHUB_TOKEN=ghp_...
+       python run_agent.py --dataset data/sample_dataset.xlsx --target target
+
+     Choose a different model (default: gpt-4o-mini):
+       python run_agent.py --model gpt-4o ...
+       # Or: export GITHUB_MODELS_MODEL=gpt-4o
+
+  2. **On-premise vllm** (or any OpenAI-compatible server).
+     Pass --base-url to override the endpoint and optionally --api-key.
+
+       python run_agent.py \\
+           --base-url http://localhost:8000/v1 \\
+           --model mistralai/Mistral-7B-Instruct-v0.3 \\
+           --api-key not-needed \\
+           --dataset data/sample_dataset.xlsx \\
+           --target target
+
+Environment variables:
+    GITHUB_TOKEN          — GitHub PAT with models:read scope (auto-set in Codespaces)
+    GITHUB_MODELS_MODEL   — GitHub Models model name (default: gpt-4o-mini)
+    VLLM_BASE_URL         — vllm/custom endpoint (overrides GitHub Models)
+    VLLM_MODEL            — model name for vllm
+    VLLM_API_KEY          — API key for vllm (default: not-needed)
+    DATASET_PATH          — path to Excel/CSV dataset
+    TARGET_COLUMN         — name of the target column
+    MAX_ITERATIONS        — number of experiment iterations (default: 100)
+    LLM_TEMPERATURE       — sampling temperature (default: 0.7)
+    LLM_MAX_TOKENS        — max tokens in LLM response (default: 4096)
 """
 
 import argparse
-import json
 import os
 import re
 import subprocess
@@ -34,12 +58,36 @@ from pathlib import Path
 from openai import OpenAI
 
 # ---------------------------------------------------------------------------
-# Defaults
+# GitHub Models constants
 # ---------------------------------------------------------------------------
 
-DEFAULT_BASE_URL = os.environ.get("VLLM_BASE_URL", "http://localhost:8000/v1")
-DEFAULT_MODEL = os.environ.get("VLLM_MODEL", "")
-DEFAULT_API_KEY = os.environ.get("VLLM_API_KEY", "not-needed")
+GITHUB_MODELS_ENDPOINT = "https://models.inference.ai.azure.com"
+GITHUB_MODELS_DEFAULT_MODEL = "gpt-4o-mini"
+
+# ---------------------------------------------------------------------------
+# Defaults  (resolved at import time so CLI can override)
+# ---------------------------------------------------------------------------
+
+_github_token = os.environ.get("GITHUB_TOKEN", "")
+_use_github_models = bool(_github_token) and "VLLM_BASE_URL" not in os.environ
+
+# Backend endpoint & key
+DEFAULT_BASE_URL = os.environ.get(
+    "VLLM_BASE_URL",
+    GITHUB_MODELS_ENDPOINT if _use_github_models else "http://localhost:8000/v1",
+)
+DEFAULT_MODEL = os.environ.get(
+    "VLLM_MODEL",
+    os.environ.get("GITHUB_MODELS_MODEL", GITHUB_MODELS_DEFAULT_MODEL)
+    if _use_github_models
+    else "",
+)
+DEFAULT_API_KEY = (
+    _github_token
+    if _use_github_models
+    else os.environ.get("VLLM_API_KEY", "not-needed")
+)
+
 DEFAULT_DATASET = os.environ.get("DATASET_PATH", "data/sample_dataset.xlsx")
 DEFAULT_TARGET = os.environ.get("TARGET_COLUMN", "target")
 DEFAULT_MAX_ITER = int(os.environ.get("MAX_ITERATIONS", "100"))
@@ -241,21 +289,27 @@ def run_experiment(dataset: str, target: str) -> tuple[str, dict]:
 def run_agent(
     base_url: str,
     model: str,
+    api_key: str,
     dataset: str,
     target: str,
     max_iterations: int,
     temperature: float,
     max_tokens: int,
 ):
+    backend = (
+        "GitHub Models (Copilot Pro)"
+        if base_url == GITHUB_MODELS_ENDPOINT
+        else f"vllm / custom  ({base_url})"
+    )
     print(f"\n{'='*60}")
     print("  autoresearch_regression — autonomous agent")
+    print(f"  Backend  : {backend}")
     print(f"  LLM      : {model}")
-    print(f"  Endpoint : {base_url}")
     print(f"  Dataset  : {dataset}  (target='{target}')")
     print(f"  Max iters: {max_iterations}")
     print(f"{'='*60}\n")
 
-    client = OpenAI(base_url=base_url, api_key=DEFAULT_API_KEY)
+    client = OpenAI(base_url=base_url, api_key=api_key)
     ensure_results_file()
 
     best_rmse = float("inf")
@@ -357,48 +411,80 @@ def run_agent(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Autonomous regression research agent (vllm-backed)",
+        description=(
+            "Autonomous regression research agent — "
+            "uses GitHub Models (Copilot Pro) by default when GITHUB_TOKEN is set, "
+            "or any OpenAI-compatible endpoint via --base-url."
+        ),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
         "--base-url", default=DEFAULT_BASE_URL,
-        help="Base URL of the vllm OpenAI-compatible server"
+        help=(
+            "LLM endpoint URL.  Defaults to GitHub Models when GITHUB_TOKEN is set, "
+            "otherwise http://localhost:8000/v1 (vllm).  "
+            "GitHub Models: https://models.inference.ai.azure.com"
+        ),
     )
     parser.add_argument(
         "--model", default=DEFAULT_MODEL,
-        help="Model name as served by vllm (e.g. mistralai/Mistral-7B-Instruct-v0.3)"
+        help=(
+            "Model name.  GitHub Models examples: gpt-4o, gpt-4o-mini, "
+            "Meta-Llama-3.1-70B-Instruct.  "
+            "vllm example: mistralai/Mistral-7B-Instruct-v0.3"
+        ),
+    )
+    parser.add_argument(
+        "--api-key", default=None,
+        help=(
+            "API key.  For GitHub Models this is your GITHUB_TOKEN (read from env "
+            "automatically).  For vllm leave as 'not-needed'."
+        ),
     )
     parser.add_argument(
         "--dataset", default=DEFAULT_DATASET,
-        help="Path to the Excel (.xlsx) or CSV dataset"
+        help="Path to the Excel (.xlsx) or CSV dataset",
     )
     parser.add_argument(
         "--target", default=DEFAULT_TARGET,
-        help="Name of the target column in the dataset"
+        help="Name of the target column in the dataset",
     )
     parser.add_argument(
         "--max-iterations", type=int, default=DEFAULT_MAX_ITER,
-        help="Maximum number of experiment iterations"
+        help="Maximum number of experiment iterations",
     )
     parser.add_argument(
         "--temperature", type=float, default=DEFAULT_TEMPERATURE,
-        help="LLM sampling temperature"
+        help="LLM sampling temperature",
     )
     parser.add_argument(
         "--max-tokens", type=int, default=DEFAULT_MAX_TOKENS,
-        help="Maximum tokens in LLM response"
+        help="Maximum tokens in LLM response",
     )
     args = parser.parse_args()
 
     if not args.model:
         parser.error(
-            "Please specify --model or set VLLM_MODEL. "
-            "Example: mistralai/Mistral-7B-Instruct-v0.3"
+            "No model specified.  Either:\n"
+            "  • Set GITHUB_TOKEN to use GitHub Models automatically, or\n"
+            "  • Pass --model (e.g. --model gpt-4o-mini), or\n"
+            "  • Set VLLM_MODEL for an on-premise vllm server."
+        )
+
+    # Resolve api-key: CLI > env > fallback
+    api_key = args.api_key or DEFAULT_API_KEY
+
+    if args.base_url == GITHUB_MODELS_ENDPOINT and api_key in ("not-needed", ""):
+        parser.error(
+            "GitHub Models requires a GitHub token.\n"
+            "  In Codespaces this is set automatically (GITHUB_TOKEN).\n"
+            "  Locally: export GITHUB_TOKEN=<your PAT with models:read scope>"
         )
 
     run_agent(
         base_url=args.base_url,
         model=args.model,
+        api_key=api_key,
         dataset=args.dataset,
         target=args.target,
         max_iterations=args.max_iterations,
