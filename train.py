@@ -25,6 +25,7 @@ Dataset notes (updated_dataset_4_madam_MB_dye.xlsx):
 import os
 import sys
 import time
+import warnings
 
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
@@ -161,7 +162,6 @@ def main():
         model_cv, X_tv, y_tv, cv=loo,
         scoring="neg_root_mean_squared_error", n_jobs=-1
     )
-    import warnings
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=UserWarning, message="R.*2 score is not well-defined")
         cv_r2 = cross_val_score(
@@ -170,10 +170,14 @@ def main():
     train_seconds = time.perf_counter() - t0
 
     val_rmse = float(cv_rmse.mean())
-    # LOO R² is undefined per-fold (1 sample) — fall back to a RMSE-derived pseudo-R²
+    # LOO folds have 1 test sample each, so per-fold R² is undefined.
+    # Report the mean of any non-NaN fold R² scores (or 0 if all are NaN).
     valid_r2 = cv_r2[~np.isnan(cv_r2)]
     val_r2   = float(valid_r2.mean()) if len(valid_r2) > 0 else 0.0
-    val_mae  = val_rmse * 0.8   # approximate; only val_rmse is tracked by the agent
+    val_mae  = float(
+        -cross_val_score(model_cv, X_tv, y_tv, cv=LeaveOneOut(),
+                         scoring="neg_mean_absolute_error", n_jobs=-1).mean()
+    )
 
     # -----------------------------------------------------------------------
     # Final model: fit on full train+val, evaluate on held-out test.

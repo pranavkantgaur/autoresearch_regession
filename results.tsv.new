@@ -1,0 +1,2 @@
+61a01ea	0.840831	0.220761	3.5	keep	baseline RF d=4 l=3 KFold5 (initial adaptation)
+65a1369	0.601797	0.000000	9.4	keep	GB n=500 lr=0.02 depth=3 max_features=None subsample=0.9 LOO
