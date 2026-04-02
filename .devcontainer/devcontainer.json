@@ -1,0 +1,39 @@
+{
+  "name": "autoresearch_regression",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+
+  // Install Python dependencies on container creation
+  "postCreateCommand": "pip install -r requirements.txt",
+
+  // Forward the GitHub token so run_agent.py can call GitHub Models
+  "remoteEnv": {
+    "GITHUB_TOKEN": "${localEnv:GITHUB_TOKEN}",
+    // Default model for GitHub Models – override if you prefer a different one
+    "GITHUB_MODELS_MODEL": "gpt-4o-mini",
+    // Default dataset settings – change to your own file
+    "DATASET_PATH": "data/sample_dataset.xlsx",
+    "TARGET_COLUMN": "target"
+  },
+
+  "features": {
+    // Give the container a full git setup
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-toolsai.jupyter",
+        "GitHub.copilot",
+        "GitHub.copilot-chat"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "editor.formatOnSave": true,
+        "python.formatting.provider": "none"
+      }
+    }
+  }
+}
