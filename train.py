@@ -53,12 +53,12 @@ RANDOM_FOREST_PARAMS = {
 }
 
 GRADIENT_BOOSTING_PARAMS = {
-    "n_estimators": 500,
+    "n_estimators": 350,
     "learning_rate": 0.02,
     "max_depth": 3,
     "min_samples_split": 4,
     "min_samples_leaf": 1,
-    "subsample": 0.9,
+    "subsample": 0.85,
     "max_features": None,  # use all features — best for this 7-feature dataset
     "random_state": 42,
 }
