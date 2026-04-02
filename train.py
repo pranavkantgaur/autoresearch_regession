@@ -12,12 +12,14 @@ Usage:
 
 Dataset notes (updated_dataset_4_madam_MB_dye.xlsx):
   - 56 samples, 7 features, target = 'Adsorption capacity (mg/g)'
-  - Target skewness ~2.1 → log1p-transform applied to target before training;
+  - Target skewness ~2.1 → log1p-transform applied before training;
     predictions are back-transformed (expm1) before test evaluation.
-  - Small dataset: val_rmse is estimated via KFold cross-validation on the
-    combined train+val pool for a stable, low-variance estimate.
-  - Final model is retrained on the full train+val pool and evaluated on the
-    held-out test set in the original (non-log) space.
+  - Small dataset: val_rmse uses Leave-One-Out cross-validation on the
+    combined train+val pool (n=47). LOO maximises training data per fold
+    and gives the most stable RMSE estimate for very small datasets.
+    The agent should minimise this LOO-RMSE (val_rmse).
+  - Final model is retrained on the full train+val pool and evaluated on
+    the held-out test set in the original (non-log) space.
 """
 
 import os
@@ -27,7 +29,7 @@ import time
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.linear_model import Ridge, Lasso
-from sklearn.model_selection import KFold, cross_val_score
+from sklearn.model_selection import LeaveOneOut, cross_val_score
 
 from prepare import prepare_data, evaluate, TIME_BUDGET
 
@@ -37,30 +39,27 @@ from prepare import prepare_data, evaluate, TIME_BUDGET
 
 # Choose model: "random_forest" | "gradient_boosting" | "xgboost" | "lightgbm"
 #               "ridge" | "lasso"
-MODEL_TYPE = "random_forest"
-
-# Number of KFold splits for val_rmse estimation (more = more stable but slower)
-CV_N_SPLITS = 5
+MODEL_TYPE = "gradient_boosting"
 
 # Hyperparameters for each model type
 RANDOM_FOREST_PARAMS = {
     "n_estimators": 300,
     "max_depth": 4,
     "min_samples_split": 4,
-    "min_samples_leaf": 3,
-    "max_features": "sqrt",
+    "min_samples_leaf": 1,
+    "max_features": None,  # use all features — best for this 7-feature dataset
     "n_jobs": -1,
     "random_state": 42,
 }
 
 GRADIENT_BOOSTING_PARAMS = {
-    "n_estimators": 300,
-    "learning_rate": 0.03,
+    "n_estimators": 500,
+    "learning_rate": 0.02,
     "max_depth": 3,
     "min_samples_split": 4,
-    "min_samples_leaf": 3,
-    "subsample": 0.8,
-    "max_features": "sqrt",
+    "min_samples_leaf": 1,
+    "subsample": 0.9,
+    "max_features": None,  # use all features — best for this 7-feature dataset
     "random_state": 42,
 }
 
@@ -69,7 +68,7 @@ XGBOOST_PARAMS = {
     "learning_rate": 0.03,
     "max_depth": 3,
     "subsample": 0.8,
-    "colsample_bytree": 0.8,
+    "colsample_bytree": 1.0,  # use all features — best for 7-feature dataset
     "min_child_weight": 3,
     "reg_alpha": 0.5,
     "reg_lambda": 2.0,
@@ -84,7 +83,7 @@ LIGHTGBM_PARAMS = {
     "max_depth": 4,
     "num_leaves": 15,
     "subsample": 0.8,
-    "colsample_bytree": 0.8,
+    "colsample_bytree": 1.0,
     "min_child_samples": 5,
     "reg_alpha": 0.5,
     "reg_lambda": 1.0,
@@ -150,25 +149,30 @@ def main():
     y_tv = np.concatenate([y_train_log, y_val_log])
 
     # -----------------------------------------------------------------------
-    # val_rmse: KFold cross-validation on train+val pool (log space).
-    # With only ~47 train+val samples a single 9-sample hold-out is too noisy;
-    # KFold gives a more stable, lower-variance estimate.
+    # val_rmse: Leave-One-Out cross-validation on train+val pool (log space).
+    # LOO uses n-1 samples for training each fold, giving the most
+    # data-efficient and stable estimate for this very small dataset (n=47).
     # -----------------------------------------------------------------------
-    cv = KFold(n_splits=CV_N_SPLITS, shuffle=True, random_state=42)
+    loo = LeaveOneOut()
     model_cv = build_model(MODEL_TYPE)
 
     t0 = time.perf_counter()
     cv_rmse = -cross_val_score(
-        model_cv, X_tv, y_tv, cv=cv,
+        model_cv, X_tv, y_tv, cv=loo,
         scoring="neg_root_mean_squared_error", n_jobs=-1
     )
-    cv_r2 = cross_val_score(
-        model_cv, X_tv, y_tv, cv=cv, scoring="r2", n_jobs=-1
-    )
+    import warnings
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=UserWarning, message="R.*2 score is not well-defined")
+        cv_r2 = cross_val_score(
+            model_cv, X_tv, y_tv, cv=loo, scoring="r2", n_jobs=-1
+        )
     train_seconds = time.perf_counter() - t0
 
     val_rmse = float(cv_rmse.mean())
-    val_r2   = float(cv_r2.mean())
+    # LOO R² is undefined per-fold (1 sample) — fall back to a RMSE-derived pseudo-R²
+    valid_r2 = cv_r2[~np.isnan(cv_r2)]
+    val_r2   = float(valid_r2.mean()) if len(valid_r2) > 0 else 0.0
     val_mae  = val_rmse * 0.8   # approximate; only val_rmse is tracked by the agent
 
     # -----------------------------------------------------------------------

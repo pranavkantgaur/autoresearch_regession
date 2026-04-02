@@ -1,6 +1,2 @@
-commit	val_rmse	val_r2	train_seconds	status	description
-874f8f3	45.107748	0.652073	0.3	keep	baseline RandomForest n_estimators=200
-874f8f3	37.716792	0.756728	0.3	keep	GradientBoosting n_estimators=300 lr=0.05 depth=5
-874f8f3	37.613605	0.758078	0.3	keep	XGBoost n_estimators=300 lr=0.05 depth=6
-874f8f3	37.613605	0.758078	0.3	discard	XGBoost n_estimators=500 lr=0.02 depth=5 (no improvement)
-874f8f3	37.943935	0.753793	0.2	discard	LightGBM n_estimators=500 lr=0.03 leaves=63 (no improvement over XGBoost)
+commitval_rmseval_r2train_secondsstatusdescription
+61a01ea0.8408310.2207613.5keepbaseline RF max_depth=4 min_samples_leaf=3 log1p-target KFold5
