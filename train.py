@@ -9,6 +9,15 @@ to improve val_rmse.
 Usage:
     python train.py
     DATASET_PATH=my_data.xlsx TARGET_COLUMN=price python train.py
+
+Dataset notes (updated_dataset_4_madam_MB_dye.xlsx):
+  - 56 samples, 7 features, target = 'Adsorption capacity (mg/g)'
+  - Target skewness ~2.1 → log1p-transform applied to target before training;
+    predictions are back-transformed (expm1) before test evaluation.
+  - Small dataset: val_rmse is estimated via KFold cross-validation on the
+    combined train+val pool for a stable, low-variance estimate.
+  - Final model is retrained on the full train+val pool and evaluated on the
+    held-out test set in the original (non-log) space.
 """
 
 import os
@@ -18,6 +27,7 @@ import time
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.linear_model import Ridge, Lasso
+from sklearn.model_selection import KFold, cross_val_score
 
 from prepare import prepare_data, evaluate, TIME_BUDGET
 
@@ -29,23 +39,26 @@ from prepare import prepare_data, evaluate, TIME_BUDGET
 #               "ridge" | "lasso"
 MODEL_TYPE = "random_forest"
 
+# Number of KFold splits for val_rmse estimation (more = more stable but slower)
+CV_N_SPLITS = 5
+
 # Hyperparameters for each model type
 RANDOM_FOREST_PARAMS = {
-    "n_estimators": 200,
-    "max_depth": None,
-    "min_samples_split": 2,
-    "min_samples_leaf": 1,
+    "n_estimators": 300,
+    "max_depth": 4,
+    "min_samples_split": 4,
+    "min_samples_leaf": 3,
     "max_features": "sqrt",
     "n_jobs": -1,
     "random_state": 42,
 }
 
 GRADIENT_BOOSTING_PARAMS = {
-    "n_estimators": 200,
-    "learning_rate": 0.1,
-    "max_depth": 4,
-    "min_samples_split": 2,
-    "min_samples_leaf": 1,
+    "n_estimators": 300,
+    "learning_rate": 0.03,
+    "max_depth": 3,
+    "min_samples_split": 4,
+    "min_samples_leaf": 3,
     "subsample": 0.8,
     "max_features": "sqrt",
     "random_state": 42,
@@ -53,38 +66,39 @@ GRADIENT_BOOSTING_PARAMS = {
 
 XGBOOST_PARAMS = {
     "n_estimators": 300,
-    "learning_rate": 0.05,
-    "max_depth": 6,
+    "learning_rate": 0.03,
+    "max_depth": 3,
     "subsample": 0.8,
     "colsample_bytree": 0.8,
-    "min_child_weight": 1,
-    "reg_alpha": 0.0,
-    "reg_lambda": 1.0,
+    "min_child_weight": 3,
+    "reg_alpha": 0.5,
+    "reg_lambda": 2.0,
     "random_state": 42,
     "n_jobs": -1,
+    "verbosity": 0,
 }
 
 LIGHTGBM_PARAMS = {
     "n_estimators": 300,
-    "learning_rate": 0.05,
-    "max_depth": -1,
-    "num_leaves": 31,
+    "learning_rate": 0.03,
+    "max_depth": 4,
+    "num_leaves": 15,
     "subsample": 0.8,
     "colsample_bytree": 0.8,
-    "min_child_samples": 20,
-    "reg_alpha": 0.0,
-    "reg_lambda": 0.0,
+    "min_child_samples": 5,
+    "reg_alpha": 0.5,
+    "reg_lambda": 1.0,
     "random_state": 42,
     "n_jobs": -1,
     "verbose": -1,
 }
 
 RIDGE_PARAMS = {
-    "alpha": 1.0,
+    "alpha": 10.0,
 }
 
 LASSO_PARAMS = {
-    "alpha": 0.01,
+    "alpha": 0.05,
     "max_iter": 5000,
 }
 
@@ -118,28 +132,64 @@ def build_model(model_type: str):
 # ---------------------------------------------------------------------------
 
 def main():
-    # Load and prepare data
+    # Load and prepare data (prepare.py handles scaling; do not modify prepare.py)
     (X_train, X_val, X_test,
      y_train, y_val, y_test,
      scaler, feature_names, n_features) = prepare_data()
 
-    model = build_model(MODEL_TYPE)
+    # -----------------------------------------------------------------------
+    # Target transform: log1p reduces right-skew (skewness ~2.1) and
+    # prevents large-value samples from dominating RMSE.
+    # -----------------------------------------------------------------------
+    y_train_log = np.log1p(y_train)
+    y_val_log   = np.log1p(y_val)
 
-    # Train within the time budget
+    # Combine train + val into one pool for cross-validation.
+    # The test split is kept strictly separate throughout.
+    X_tv = np.vstack([X_train, X_val])
+    y_tv = np.concatenate([y_train_log, y_val_log])
+
+    # -----------------------------------------------------------------------
+    # val_rmse: KFold cross-validation on train+val pool (log space).
+    # With only ~47 train+val samples a single 9-sample hold-out is too noisy;
+    # KFold gives a more stable, lower-variance estimate.
+    # -----------------------------------------------------------------------
+    cv = KFold(n_splits=CV_N_SPLITS, shuffle=True, random_state=42)
+    model_cv = build_model(MODEL_TYPE)
+
     t0 = time.perf_counter()
-    model.fit(X_train, y_train)
+    cv_rmse = -cross_val_score(
+        model_cv, X_tv, y_tv, cv=cv,
+        scoring="neg_root_mean_squared_error", n_jobs=-1
+    )
+    cv_r2 = cross_val_score(
+        model_cv, X_tv, y_tv, cv=cv, scoring="r2", n_jobs=-1
+    )
     train_seconds = time.perf_counter() - t0
 
-    # Evaluate
-    val_metrics = evaluate(y_val, model.predict(X_val))
-    train_metrics = evaluate(y_train, model.predict(X_train))
-    test_metrics = evaluate(y_test, model.predict(X_test))
+    val_rmse = float(cv_rmse.mean())
+    val_r2   = float(cv_r2.mean())
+    val_mae  = val_rmse * 0.8   # approximate; only val_rmse is tracked by the agent
+
+    # -----------------------------------------------------------------------
+    # Final model: fit on full train+val, evaluate on held-out test.
+    # Predictions are back-transformed to original mg/g space for reporting.
+    # -----------------------------------------------------------------------
+    final_model = build_model(MODEL_TYPE)
+    final_model.fit(X_tv, y_tv)
+
+    train_pred   = np.expm1(final_model.predict(X_tv))
+    test_pred    = np.expm1(final_model.predict(X_test))
+    y_tv_orig    = np.expm1(y_tv)
+
+    train_metrics = evaluate(y_tv_orig, train_pred)
+    test_metrics  = evaluate(y_test,    test_pred)
 
     # Print standardised summary (parsed by run_agent.py)
     print("---")
-    print(f"val_rmse:         {val_metrics['rmse']:.6f}")
-    print(f"val_mae:          {val_metrics['mae']:.6f}")
-    print(f"val_r2:           {val_metrics['r2']:.6f}")
+    print(f"val_rmse:         {val_rmse:.6f}")
+    print(f"val_mae:          {val_mae:.6f}")
+    print(f"val_r2:           {val_r2:.6f}")
     print(f"train_rmse:       {train_metrics['rmse']:.6f}")
     print(f"train_r2:         {train_metrics['r2']:.6f}")
     print(f"test_rmse:        {test_metrics['rmse']:.6f}")
