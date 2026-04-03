@@ -56,6 +56,7 @@ MODEL_TYPE = "gradient_boosting"
 
 # Number of random trials and their seeds (mirrors notebook: n_trials=10,
 # seeds drawn from 0-999 without replacement).  Fixed here for reproducibility.
+# Generated via: np.random.RandomState(42).choice(1000, size=10, replace=False)
 N_TRIALS = 10
 TRIAL_SEEDS = [521, 737, 740, 660, 411, 678, 626, 513, 859, 136]
 
@@ -174,8 +175,9 @@ def main():
     # Training uses log1p-transformed target; metrics are computed in the
     # original mg/g space (expm1 back-transform) to match the notebook.
     # -----------------------------------------------------------------------
-    trial_test_rmse = []
-    trial_test_r2   = []
+    trial_test_rmse  = []
+    trial_test_r2    = []
+    trial_test_mae   = []
     trial_train_rmse = []
     trial_train_r2   = []
 
@@ -199,12 +201,13 @@ def main():
         trial_train_r2.append(tr_metrics["r2"])
         trial_test_rmse.append(tst_metrics["rmse"])
         trial_test_r2.append(tst_metrics["r2"])
+        trial_test_mae.append(tst_metrics["mae"])
 
     train_seconds = time.perf_counter() - t0
 
     val_rmse  = float(np.mean(trial_test_rmse))
     val_r2    = float(np.mean(trial_test_r2))
-    val_mae   = float(np.mean(trial_test_rmse)) * 0.8  # approximate
+    val_mae   = float(np.mean(trial_test_mae))
 
     # -----------------------------------------------------------------------
     # Final model: fit on full train+val pool, evaluate on fixed held-out test.
