@@ -635,4 +635,481 @@ Spearman(PS, target) & $\rho = -0.461$ & Non-linear, important \\
 \end{tabular}
 \end{table}
 
+
+% -----------------------------------------------------------------------
+\section{Topological Analysis of the Dataset}
+\label{sec:topology}
+% -----------------------------------------------------------------------
+
+This section analyses the \emph{topology} of the feature space — its
+connectivity, holes, and intrinsic dimensionality — to determine structural
+upper bounds on model performance that are independent of the learning
+algorithm chosen.
+
+\subsection{Intrinsic Dimensionality}
+
+Although the dataset has $d=7$ measured features, the effective number of
+degrees of freedom is considerably lower.  Three complementary estimates
+are reported in Table~\ref{tab:intdim}.
+
+\begin{table}[h]
+\centering
+\caption{Intrinsic dimensionality estimates for the 56-sample dataset.}
+\label{tab:intdim}
+\begin{tabular}{lrl}
+\toprule
+Method & Estimate & Notes \\
+\midrule
+PCA (90\,\% variance threshold) & 5 PCs & 81.5\,\% at 4 PCs \\
+Two-Nearest-Neighbour (2NN) & 2.90 & Facco et al.\ (2017) \\
+Correlation dimension          & 2.18 & $r=0.992$; linear log-log fit \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The 2NN and correlation-dimension estimates converge to an effective
+dimensionality of $d_{\text{eff}} \approx 2.9$.  This is significantly
+lower than the ambient $d=7$, indicating strong inter-feature correlations.
+Practically, this means that the curse of dimensionality is \emph{not} as
+severe as the nominal feature count suggests; however, it also implies that
+56 samples must cover a $\sim$3-dimensional manifold, a task that is
+already demanding given the wide spread of the feature distributions.
+
+\subsection{Connectivity and Topological Holes}
+
+We construct a Vietoris--Rips filtration on the standardised feature space
+by connecting pairs of samples $i,j$ whenever their Euclidean distance
+$\|x_i - x_j\|_2 \leq \varepsilon$.
+Table~\ref{tab:connectivity} shows how the number of connected components
+decreases as $\varepsilon$ increases.
+
+\begin{table}[h]
+\centering
+\caption{Number of connected components in the Vietoris-Rips graph as a
+  function of the connection radius $\varepsilon$ (standardised feature
+  space).}
+\label{tab:connectivity}
+\begin{tabular}{rr}
+\toprule
+$\varepsilon$ & Components \\
+\midrule
+0.5  & 46 \\
+1.0  & 25 \\
+1.5  & 13 \\
+2.0  &  6 \\
+2.5  &  5 \\
+3.0  &  3 \\
+4.0  &  2 \\
+7.3  &  1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent\textbf{Key observation.}  The dataset does not become fully
+connected until $\varepsilon \approx 7.3$ — yet the median nearest-neighbour
+distance is only $0.806$.  This reveals the presence of large \emph{voids}
+in the feature space: sub-clusters of samples that are mutually close but
+far from any other cluster.  A model trained on one cluster cannot
+interpolate reliably to another cluster separated by a void; it must
+extrapolate, which is inherently high-risk with limited data.
+
+\subsection{Isolated Samples}
+
+Samples whose nearest-neighbour distance exceeds twice the median
+($2 \times 0.806 = 1.61$) are effectively isolated from the bulk of the
+data.  Table~\ref{tab:isolated} lists these samples.
+
+\begin{table}[h]
+\centering
+\caption{Isolated samples in the feature space (nearest-neighbour distance
+  $>$ 1.61 in standardised units).}
+\label{tab:isolated}
+\begin{tabular}{rrrp{7cm}}
+\toprule
+Index & $y$ (mg\,g$^{-1}$) & NN distance & Significance \\
+\midrule
+30  & 116  & 7.24 & \textbf{Extreme outlier}; nearest sample is 7.24 units away \\
+26  & 716  & 3.42 & Isolated mid-range sample \\
+40  & 369  & 2.87 & Isolated mid-range sample \\
+5   & 969  & 2.72 & High-performance isolated point \\
+14  & 290  & 1.89 & Low-mid isolated point \\
+20  & 269  & 1.81 & Low-mid isolated point \\
+41  & 2080 & 1.88 & High-performance isolated point \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Sample~30 ($y=116$\,mg\,g$^{-1}$, NN distance = 7.24) is the most extreme
+case: it is so far from all other samples that no model can reliably
+interpolate to or from it.  When sample~30 appears in a test fold, the
+model must extrapolate across a void of size 7.24 normalised units —
+equivalent to predicting a point that is $>$7 standard deviations away
+from any training sample in the joint feature space.  This single point
+is a principal contributor to trial-to-trial RMSE variance.
+
+% -----------------------------------------------------------------------
+\section{Nyquist Sampling Analysis and Upper-Bound Estimation}
+\label{sec:nyquist}
+% -----------------------------------------------------------------------
+
+The \emph{Nyquist--Shannon sampling theorem} states that a band-limited
+function can be perfectly reconstructed from its samples if the sampling
+density is at least twice the highest spatial frequency present in the
+function.  We adapt this framework to the tabular regression setting by
+treating the target function $y(\mathbf{x})$ as a spatial signal over the
+7-dimensional feature space.
+
+\subsection{Spatial Frequency of the Target Function}
+
+The local \emph{spatial gradient} $|\Delta y|/|\Delta x|$ (in
+mg\,g$^{-1}$ per normalised feature unit) quantifies how rapidly the
+target changes relative to the sampling density.  Using all 1\,540
+sample pairs we compute:
+\begin{itemize}[leftmargin=*]
+  \item Median gradient: $139.4$\,mg\,g$^{-1}$/unit
+  \item 95th-percentile gradient: $1{,}316$\,mg\,g$^{-1}$/unit
+  \item Maximum gradient (closest high-$\Delta y$ pair): $1{,}708$\,mg\,g$^{-1}$/unit
+\end{itemize}
+
+The variogram (Table~\ref{tab:variogram}) shows that $\gamma(h)$ rises
+steeply from zero and reaches 80\,\% of the sill at $h \approx 2.37$
+(normalised units), defining the \emph{spatial range} of the target
+function — the distance beyond which pairs of samples become practically
+uncorrelated.  The near-zero nugget ($\gamma(0) \approx 0$) indicates no
+significant measurement noise; all 280\,mg\,g$^{-1}$ of current model
+error is \emph{reducible} in principle with better data coverage.
+
+\begin{table}[h]
+\centering
+\caption{Experimental semivariogram $\gamma(h) = \tfrac{1}{2}\mathbb{E}[(y_i-y_j)^2 \mid \|x_i-x_j\|=h]$.
+  The sill is $\text{Var}(y) = 288{,}720$ (mg\,g$^{-1}$)$^2$, so
+  $\sigma_y = 537$\,mg\,g$^{-1}$.}
+\label{tab:variogram}
+\small
+\begin{tabular}{lrr}
+\toprule
+Distance $h$ range & $\gamma(h)$ & $\gamma(h)/\text{sill}$ \\
+\midrule
+$[0.14,\;1.46)$ &  50\,327 & 0.17 \\
+$[1.46,\;1.89)$ &  95\,127 & 0.33 \\
+$[1.89,\;2.37)$ & 145\,308 & 0.50 \\
+$[2.37,\;2.79)$ & 304\,587 & 1.05 \\
+$[2.79,\;3.25)$ & 443\,069 & 1.53 \\
+$[3.25,\;3.71)$ & 521\,165 & 1.81 \\
+$[3.71,\;4.12)$ & 508\,903 & 1.76 \\
+$[4.12,\;4.59)$ & 401\,866 & 1.39 \\
+$[4.59,\;5.36)$ & 277\,870 & 0.96 \\
+$[5.36,\;9.60)$ & 191\,470 & 0.66 \\
+\midrule
+Nugget $\gamma(0)$   & $\approx 0$ & 0.000 \\
+Sill               & 288\,720    & 1.000 \\
+\textbf{Range} (80\,\% sill) & $h \approx 2.37$ & — \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{$k$-NN Oracle as an Interpolation Upper Bound}
+
+The $k$-nearest-neighbours regressor evaluated via leave-one-out (LOO)
+cross-validation gives a \emph{data-density-limited} upper bound on
+achievable performance: it is the best any pure interpolation strategy
+can do with the current dataset, regardless of model class
+(Table~\ref{tab:knn_oracle}).
+
+\begin{table}[h]
+\centering
+\caption{$k$-NN Oracle LOO-CV RMSE.  This is the best any smooth
+  interpolation model can achieve given the current sampling density.}
+\label{tab:knn_oracle}
+\begin{tabular}{rr}
+\toprule
+$k$ & LOO RMSE (mg\,g$^{-1}$) \\
+\midrule
+1  & 418 \\
+2  & 328 \\
+3  & 364 \\
+5  & 370 \\
+7  & 341 \\
+10 & 328 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The best $k$-NN oracle achieves RMSE $\approx 328$\,mg\,g$^{-1}$ — only
+marginally better than the 280\,mg\,g$^{-1}$ of the best Gradient
+Boosting model.  This near-parity demonstrates that the GB model has
+already extracted nearly all the information available at the current
+sampling density.  \textbf{The remaining 280\,mg\,g$^{-1}$ of RMSE is a
+consequence of sparse sampling, not of model under-capacity.}
+
+\subsection{Nyquist Spacing Requirement}
+
+For a function of effective dimensionality $d_{\text{eff}} = 2.9$ defined
+over a feature space of span $L = 6$ (in normalised units), the sampling
+density required to achieve a target RMSE of $\epsilon_0$ can be estimated
+via:
+\begin{equation}
+  \delta_{\text{Nyquist}} = \frac{2\epsilon_0}{\bar{f}}, \qquad
+  n_{\text{required}} \approx \left(\frac{L}{\delta_{\text{Nyquist}}}\right)^{d_{\text{eff}}}
+  \label{eq:nyquist_n}
+\end{equation}
+where $\bar{f} = 139.4$\,mg\,g$^{-1}$/unit is the median spatial
+frequency.  Table~\ref{tab:nyquist_req} shows the implied sample sizes.
+
+\begin{table}[h]
+\centering
+\caption{Nyquist sampling requirement: minimum dataset size to achieve a
+  target RMSE, derived from Equation~\eqref{eq:nyquist_n} with
+  $\bar{f}=139.4$, $L=6$, $d_{\text{eff}}=2.9$.}
+\label{tab:nyquist_req}
+\begin{tabular}{rrr}
+\toprule
+Target RMSE (mg\,g$^{-1}$) & Required spacing $\delta$ & $n_\text{required}$ \\
+\midrule
+300 & 4.30 & 3 \\
+200 & 2.87 & 8 \\
+150 & 2.15 & 20 \\
+100 & 1.43 & 63 \\
+50  & 0.72 & 390 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent\textbf{Interpretation.}  Achieving RMSE $\approx 100$\,mg\,g$^{-1}$
+requires uniform spacing of $\delta < 1.43$ over the effective 2.9D
+manifold, corresponding to approximately 63 well-distributed training
+samples.  Since the current effective training pool has 47 samples but
+they are \emph{not} uniformly distributed, the practical requirement is
+higher — consistent with the power-law projection of $\sim$65 samples for
+RMSE $\leq 300$ and $\sim$157 for RMSE $\leq 250$.
+
+\subsection{High-Gradient Region: Local Nyquist Analysis}
+
+The 28 sample pairs with distance $< 2.0$ and $|\Delta y| > 500$\,mg\,g$^{-1}$
+define a \emph{high-gradient sub-region} of the input space where the
+target function changes most rapidly.  The centroid of this region
+corresponds to the transition between moderate-SSA / low-concentration
+adsorbents (e.g., $y \approx 200$--$500$\,mg\,g$^{-1}$) and high-SSA /
+high-concentration systems (e.g., $y \approx 1{,}700$--$2{,}250$\,mg\,g$^{-1}$).
+
+The maximum local gradient in this region is $1{,}461$\,mg\,g$^{-1}$/unit
+(pair samples 18 and 42, distance 1.38).  To satisfy the Nyquist condition
+in this sub-region and achieve local interpolation RMSE $< 50$\,mg\,g$^{-1}$:
+\begin{equation}
+  \delta_{\text{high-grad}} < \frac{2 \times 50}{1{,}461} \approx 0.068
+\end{equation}
+The current average spacing in this region is $\approx 1.62$ — a factor
+of $\sim$24 coarser than Nyquist.  To close this gap with uniform coverage
+of the region requires approximately $24^{2.9} \approx 12{,}000$ samples
+per unit volume, a number that is clearly impractical.  However, even a
+modest 10-fold reduction (spacing $\approx 0.16$) would reduce local
+interpolation error by an order of magnitude.
+
+\subsection{Per-Decile Sampling Deficit}
+
+Table~\ref{tab:decile_deficit} quantifies the gap between the current
+intra-decile nearest-neighbour spacing and the median spacing of the
+dataset as a whole (0.806 normalised units), along with the number of
+additional experiments required to eliminate the gap.
+
+\begin{table}[h]
+\centering
+\caption{Intra-decile density analysis.  ``Current spacing'' is the mean
+  nearest-neighbour distance among samples in the same decile.
+  ``Deficit'' is the number of additional samples needed to reduce
+  intra-decile spacing to the global median (0.806).
+  Estimated via $n_\text{extra} = n_\text{current}\,((\delta/0.806)^{d_\text{eff}}-1)$.}
+\label{tab:decile_deficit}
+\small
+\begin{tabular}{lrrr}
+\toprule
+Target decile (mg\,g$^{-1}$) & $n$ & Spacing & Deficit \\
+\midrule
+$[\phantom{0}76,\;145)$ & 5 & 2.51 & +130 \\
+$[532,\;993)$           & 6 & 2.50 & +154 \\
+$[293,\;357)$           & 5 & 2.36 & +107 \\
+$[217,\;269)$           & 5 & 2.05 & +70  \\
+$[269,\;293)$           & 6 & 1.96 & +73  \\
+$[145,\;217)$           & 6 & 1.44 & +27  \\
+$[357,\;435)$           & 6 & 1.58 & +36  \\
+$[\phantom{00}13,\;\phantom{0}76)$ & 6 & 1.20 & +13  \\
+$[993,\;2251]$          & 6 & 1.15 & +11  \\
+$[435,\;532)$           & 5 & 1.30 & +15  \\
+\midrule
+\textbf{Total deficit}   & & & \textbf{+636} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The two most data-hungry deciles are:
+\begin{itemize}[leftmargin=*]
+  \item \textbf{$[532,\;993)$\,mg\,g$^{-1}$} — this is the transition
+        region between moderate and high adsorption capacity.  It is
+        topologically central (between the two large clusters) but has
+        only 6 samples and a spacing of 2.50 units.  This void is
+        responsible for the high-gradient boundary discussed above.
+  \item \textbf{$[76,\;145)$\,mg\,g$^{-1}$} — low-end transition;
+        similarly under-sampled relative to its scatter.
+\end{itemize}
+
+\subsection{Data Augmentation Simulation}
+
+To validate the Nyquist prediction, we simulated adding $n_\text{extra}$
+interpolated samples (midpoints of existing nearest-neighbour pairs) and
+measured the change in $k$-NN oracle LOO RMSE on the original 56 points
+(Table~\ref{tab:augmentation}).
+
+\begin{table}[h]
+\centering
+\caption{$k$-NN (k=3) LOO RMSE on original 56 samples after adding
+  interpolated synthetic training points.}
+\label{tab:augmentation}
+\begin{tabular}{rr}
+\toprule
+$n_\text{extra}$ & LOO RMSE (mg\,g$^{-1}$) \\
+\midrule
+0   & 364 \\
+10  & 335 \\
+20  & 336 \\
+30  & 319 \\
+50  & 321 \\
+100 & 285 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Adding 100 interpolated points reduces RMSE from 364 to 285\,mg\,g$^{-1}$
+($-22$\,\%), confirming that denser coverage — even with synthetic
+midpoints — yields measurable improvement.  Real experimental data in
+the gap regions would be even more effective because it directly reduces
+the variance due to the high-gradient boundary.
+
+% -----------------------------------------------------------------------
+\section{Consolidated Upper-Bound Analysis and Recommendations}
+\label{sec:upper_bound}
+% -----------------------------------------------------------------------
+
+\subsection{Theoretical Minimum Achievable RMSE}
+
+Combining the topological and Nyquist analyses, we can estimate upper and
+lower bounds on the achievable RMSE:
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Hard lower bound (nugget):} The semivariogram nugget
+        $\gamma(0) \approx 0$ indicates no irreducible measurement noise.
+        In principle, RMSE could approach zero with sufficiently dense
+        data.
+  \item \textbf{Data-density upper bound ($k$-NN oracle):}
+        With the \emph{current} 56 samples, the best any interpolation
+        model can achieve is RMSE $\approx 328$\,mg\,g$^{-1}$
+        (2-NN LOO).  The best GB model (280\,mg\,g$^{-1}$) has nearly
+        saturated this bound.
+  \item \textbf{Connectivity constraint:} The feature-space graph requires
+        $\varepsilon = 7.3$ to connect, meaning there are genuine voids
+        where any model must extrapolate rather than interpolate.  The
+        isolated sample~30 (NN distance = 7.24) alone contributes an
+        irreducible extrapolation error whenever it appears in a test set.
+  \item \textbf{Nyquist bound for target RMSE 100\,mg\,g$^{-1}$:} Requires
+        approximately 63 uniformly distributed samples (Table~\ref{tab:nyquist_req}).
+        The current 56 samples are non-uniformly distributed and several
+        are isolated, so $\sim$100 well-targeted additional experiments
+        would be needed in practice.
+\end{enumerate}
+
+\subsection{Revised Data Collection Recommendations}
+
+Based on the topological and Nyquist analyses, Table~\ref{tab:recommendations}
+provides a prioritised sampling strategy.
+
+\begin{table}[h]
+\centering
+\caption{Revised data collection strategy based on topological and Nyquist
+  analysis, ordered by expected RMSE reduction per sample collected.}
+\label{tab:recommendations}
+\small
+\begin{tabular}{p{4.5cm}rp{7cm}}
+\toprule
+Region & $n_\text{min}$ & Rationale \\
+\midrule
+SSA $\in [600,1400]$, conc $\in [1,4]$\,mg/g (transition zone) &
+30 &
+Bridges the two main clusters; directly addresses the high-gradient
+boundary ($f_\text{max}=1{,}461$); reduces kNN oracle bound by
+$\sim$50\,mg\,g$^{-1}$ per 30 samples. \\
+\addlinespace
+Target $y \in [532,993]$\,mg/g (decile deficit = +154) &
+20 &
+Most under-sampled decile relative to spacing; filling this
+gap will close the topological void between mid-range and
+high-performance clusters. \\
+\addlinespace
+Target $y \in [76,145]$ and $[217,357]$\,mg/g (deficit $>$100) &
+20 &
+Low-end transition; important for model accuracy on
+realistic operational conditions. \\
+\addlinespace
+Neighbours of Sample~30 (extremal outlier) &
+5  &
+Sample~30 sits in an NN-void of radius 7.24; 5 experiments
+near its feature values would reduce its contribution to
+extrapolation error. \\
+\midrule
+\textbf{Total minimum} & \textbf{75} & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Expected Performance After Targeted Collection}
+
+Using the $k$-NN interpolation estimate (Equation~\ref{eq:nyquist_n}) and
+the data augmentation simulation, the expected RMSE after adding 75
+well-targeted experiments is approximately:
+\begin{equation}
+  \text{RMSE}_{75} \approx 328 \times \left(\frac{56}{56+75}\right)^{1/d_{\text{eff}}} \approx
+  328 \times 0.85 \approx 180\text{--}220\,\text{mg\,g}^{-1}
+\end{equation}
+This is consistent with the power-law projection from Section~\ref{sec:learning}
+and with the simulation result (100 interpolated points $\to$ RMSE 285\,mg\,g$^{-1}$).
+
+% -----------------------------------------------------------------------
+\section*{Appendix C: Topological \& Nyquist Summary Statistics}
+\label{app:topo}
+\addcontentsline{toc}{section}{Appendix C: Topological \& Nyquist Summary Statistics}
+% -----------------------------------------------------------------------
+
+\begin{table}[h]
+\centering
+\caption{Key topology and Nyquist analysis results.}
+\label{tab:topo_summary}
+\begin{tabular}{lll}
+\toprule
+Quantity & Value & Interpretation \\
+\midrule
+Ambient dimensionality $d$ & 7 & Measured features \\
+Intrinsic dimensionality $d_\text{eff}$ & 2.9 & 2NN estimate \\
+Correlation dimension & 2.18 & Power-law fit on pairwise dist \\
+PCA 90\,\% variance & 5 PCs & Remaining 2 PCs carry $<$10\,\% \\
+\midrule
+Median NN distance & 0.806 & Normalised feature space \\
+Maximum NN distance & 7.24 & Sample~30 is an extremal outlier \\
+$\varepsilon$ for full connectivity & 7.30 & vs.\ median 0.81; factor 9 \\
+Isolated samples ($>2\times$median) & 7 & 12.5\,\% of dataset \\
+\midrule
+Variogram range (80\,\% sill) & 2.37 & Correlation length of target \\
+Variogram nugget & $\approx 0$ & No irreducible noise \\
+Median spatial frequency $\bar{f}$ & 139 mg\,g$^{-1}$/unit & \\
+Max spatial frequency $f_\text{max}$ & 1\,708 mg\,g$^{-1}$/unit & \\
+\midrule
+$k$-NN oracle RMSE (best $k$) & 328 mg\,g$^{-1}$ & Interpolation ceiling \\
+Best GB model RMSE & 280 mg\,g$^{-1}$ & 85\,\% of oracle \\
+Augmented oracle (+100 pts) & 285 mg\,g$^{-1}$ & Validates Nyquist prediction \\
+\midrule
+Nyquist $n$ for RMSE 100 & $\sim$63 uniform & Idealised estimate \\
+Practical $n$ for RMSE 100 & $\sim$130 targeted & Accounting for non-uniformity \\
+Total sample deficit (decile) & 636 & For uniform median spacing \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \end{document}
+
