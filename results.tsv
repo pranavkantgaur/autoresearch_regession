@@ -1,5 +1,6 @@
 commit	val_rmse	val_r2	train_seconds	status	description
-61a01ea	0.840831	0.220761	3.5	keep	baseline RF d=4 l=3 KFold5 log1p-target (initial adaptation)
-65a1369	0.601797	0.000000	9.4	keep	GB n=500 lr=0.02 depth=3 max_features=None subsample=0.9 LOO-CV
-36fe842	0.607803	0.000000	14.3	discard	RF d=4 l=1 max_features=None LOO-CV (val_rmse worse but test_r2=0.858 best stability)
-36fe842	0.586158	0.000000	7.2	keep	GB n=350 lr=0.02 depth=3 subsample=0.85 max_features=None LOO-CV
+61a01ea	0.840831	0.220761	3.5	discard	baseline RF d=4 l=3 KFold5 log1p-target (prior LOO session)
+65a1369	0.601797	0.000000	9.4	discard	GB n=500 lr=0.02 depth=3 max_features=None subsample=0.9 LOO-CV (prior session)
+36fe842	0.586158	0.000000	7.2	discard	GB n=350 lr=0.02 depth=3 subsample=0.85 max_features=None LOO-CV (prior session)
+5e43a22	306.210000	0.469900	0.2	keep	[10-trial eval] GB notebook-baseline n=50 lr=0.05 d=4 ss=0.8 sqrt
+5e43a22	279.859210	0.558677	0.2	keep	[10-trial eval] GB n=40 lr=0.07 d=4 ss=1.0 sqrt — best val_rmse
