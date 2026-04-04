@@ -14,7 +14,7 @@
 \usepackage{caption}
 \usepackage{subcaption}
 \usepackage{enumitem}
-\usepackage{natbib}
+\usepackage[numbers,sort&compress]{natbib}
 \usepackage{microtype}
 
 % -----------------------------------------------------------------------
@@ -644,7 +644,7 @@ Spearman(PS, target) & $\rho = -0.461$ & Non-linear, important \\
 This section analyses the \emph{topology} of the feature space — its
 connectivity, holes, and intrinsic dimensionality — to determine structural
 upper bounds on model performance that are independent of the learning
-algorithm chosen.
+algorithm chosen \citep{Carlsson2009, Edelsbrunner2010}.
 
 \subsection{Intrinsic Dimensionality}
 
@@ -660,9 +660,9 @@ are reported in Table~\ref{tab:intdim}.
 \toprule
 Method & Estimate & Notes \\
 \midrule
-PCA (90\,\% variance threshold) & 5 PCs & 81.5\,\% at 4 PCs \\
-Two-Nearest-Neighbour (2NN) & 2.90 & Facco et al.\ (2017) \\
-Correlation dimension          & 2.18 & $r=0.992$; linear log-log fit \\
+PCA (90\,\% variance threshold) & 5 PCs & 81.5\,\% at 4 PCs \citep{Jolliffe2002} \\
+Two-Nearest-Neighbour (2NN) & 2.90 & \citet{Facco2017} \\
+Correlation dimension          & 2.18 & $r=0.992$; \citet{Grassberger1983} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -670,14 +670,14 @@ Correlation dimension          & 2.18 & $r=0.992$; linear log-log fit \\
 The 2NN and correlation-dimension estimates converge to an effective
 dimensionality of $d_{\text{eff}} \approx 2.9$.  This is significantly
 lower than the ambient $d=7$, indicating strong inter-feature correlations.
-Practically, this means that the curse of dimensionality is \emph{not} as
+Practically, this means that the curse of dimensionality \citep{Bellman1957, Hastie2009} is \emph{not} as
 severe as the nominal feature count suggests; however, it also implies that
 56 samples must cover a $\sim$3-dimensional manifold, a task that is
 already demanding given the wide spread of the feature distributions.
 
 \subsection{Connectivity and Topological Holes}
 
-We construct a Vietoris--Rips filtration on the standardised feature space
+We construct a Vietoris--Rips filtration \citep{Edelsbrunner2010, Zomorodian2005} on the standardised feature space
 by connecting pairs of samples $i,j$ whenever their Euclidean distance
 $\|x_i - x_j\|_2 \leq \varepsilon$.
 Table~\ref{tab:connectivity} shows how the number of connected components
@@ -752,12 +752,12 @@ is a principal contributor to trial-to-trial RMSE variance.
 \label{sec:nyquist}
 % -----------------------------------------------------------------------
 
-The \emph{Nyquist--Shannon sampling theorem} states that a band-limited
+The \emph{Nyquist--Shannon sampling theorem} \citep{Nyquist1928, Shannon1949} states that a band-limited
 function can be perfectly reconstructed from its samples if the sampling
 density is at least twice the highest spatial frequency present in the
 function.  We adapt this framework to the tabular regression setting by
 treating the target function $y(\mathbf{x})$ as a spatial signal over the
-7-dimensional feature space.
+7-dimensional feature space \citep{Balestriero2021}.
 
 \subsection{Spatial Frequency of the Target Function}
 
@@ -775,13 +775,14 @@ The variogram (Table~\ref{tab:variogram}) shows that $\gamma(h)$ rises
 steeply from zero and reaches 80\,\% of the sill at $h \approx 2.37$
 (normalised units), defining the \emph{spatial range} of the target
 function — the distance beyond which pairs of samples become practically
-uncorrelated.  The near-zero nugget ($\gamma(0) \approx 0$) indicates no
+uncorrelated \citep{Webster2007}.  The near-zero nugget ($\gamma(0) \approx 0$) indicates no
 significant measurement noise; all 280\,mg\,g$^{-1}$ of current model
 error is \emph{reducible} in principle with better data coverage.
 
 \begin{table}[h]
 \centering
-\caption{Experimental semivariogram $\gamma(h) = \tfrac{1}{2}\mathbb{E}[(y_i-y_j)^2 \mid \|x_i-x_j\|=h]$.
+\caption{Experimental semivariogram $\gamma(h) = \tfrac{1}{2}\mathbb{E}[(y_i-y_j)^2 \mid \|x_i-x_j\|=h]$
+  \citep{Matheron1963, Cressie1993}.
   The sill is $\text{Var}(y) = 288{,}720$ (mg\,g$^{-1}$)$^2$, so
   $\sigma_y = 537$\,mg\,g$^{-1}$.}
 \label{tab:variogram}
@@ -810,8 +811,8 @@ Sill               & 288\,720    & 1.000 \\
 
 \subsection{$k$-NN Oracle as an Interpolation Upper Bound}
 
-The $k$-nearest-neighbours regressor evaluated via leave-one-out (LOO)
-cross-validation gives a \emph{data-density-limited} upper bound on
+The $k$-nearest-neighbours regressor \citep{Cover1967} evaluated via leave-one-out (LOO)
+cross-validation \citep{Arlot2010} gives a \emph{data-density-limited} upper bound on
 achievable performance: it is the best any pure interpolation strategy
 can do with the current dataset, regardless of model class
 (Table~\ref{tab:knn_oracle}).
@@ -1019,7 +1020,9 @@ lower bounds on the achievable RMSE:
 \subsection{Revised Data Collection Recommendations}
 
 Based on the topological and Nyquist analyses, Table~\ref{tab:recommendations}
-provides a prioritised sampling strategy.
+provides a prioritised sampling strategy guided by the principles of
+active learning \citep{Settles2012} and space-filling experimental design
+\citep{McKay1979, Pronzato2012}.
 
 \begin{table}[h]
 \centering
@@ -1110,6 +1113,127 @@ Total sample deficit (decile) & 636 & For uniform median spacing \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+% -----------------------------------------------------------------------
+\bibliographystyle{plainnat}
+\begin{thebibliography}{99}
+
+\bibitem[Arlot \& Celisse(2010)]{Arlot2010}
+Arlot, S. \& Celisse, A. (2010).
+\newblock A survey of cross-validation procedures for model selection.
+\newblock \emph{Statistics Surveys}, 4, 40--79.
+\newblock \doi{10.1214/09-SS054}
+
+\bibitem[Balestriero et al.(2021)]{Balestriero2021}
+Balestriero, R., Pesenti, J., \& LeCun, Y. (2021).
+\newblock Learning in high dimension always amounts to extrapolation.
+\newblock \emph{arXiv preprint arXiv:2110.09485}.
+
+\bibitem[Bellman(1957)]{Bellman1957}
+Bellman, R. (1957).
+\newblock \emph{Dynamic Programming}.
+\newblock Princeton University Press, Princeton, NJ.
+
+\bibitem[Carlsson(2009)]{Carlsson2009}
+Carlsson, G. (2009).
+\newblock Topology and data.
+\newblock \emph{Bulletin of the American Mathematical Society}, 46(2), 255--308.
+\newblock \doi{10.1090/S0273-0979-09-01249-X}
+
+\bibitem[Cover \& Hart(1967)]{Cover1967}
+Cover, T. M. \& Hart, P. E. (1967).
+\newblock Nearest neighbor pattern classification.
+\newblock \emph{IEEE Transactions on Information Theory}, 13(1), 21--27.
+\newblock \doi{10.1109/TIT.1967.1053964}
+
+\bibitem[Cressie(1993)]{Cressie1993}
+Cressie, N. A. C. (1993).
+\newblock \emph{Statistics for Spatial Data} (revised edition).
+\newblock Wiley, New York.
+
+\bibitem[Edelsbrunner \& Harer(2010)]{Edelsbrunner2010}
+Edelsbrunner, H. \& Harer, J. L. (2010).
+\newblock \emph{Computational Topology: An Introduction}.
+\newblock American Mathematical Society, Providence, RI.
+
+\bibitem[Facco et al.(2017)]{Facco2017}
+Facco, E., d'Errico, M., Rodriguez, A., \& Laio, A. (2017).
+\newblock Estimating the intrinsic dimension of datasets by a minimal
+  neighborhood information.
+\newblock \emph{Scientific Reports}, 7, 12140.
+\newblock \doi{10.1038/s41598-017-11873-y}
+
+\bibitem[Grassberger \& Procaccia(1983)]{Grassberger1983}
+Grassberger, P. \& Procaccia, I. (1983).
+\newblock Measuring the strangeness of strange attractors.
+\newblock \emph{Physica D: Nonlinear Phenomena}, 9(1--2), 189--208.
+\newblock \doi{10.1016/0167-2789(83)90298-1}
+
+\bibitem[Hastie et al.(2009)]{Hastie2009}
+Hastie, T., Tibshirani, R., \& Friedman, J. (2009).
+\newblock \emph{The Elements of Statistical Learning: Data Mining, Inference,
+  and Prediction} (2nd ed.).
+\newblock Springer, New York.
+\newblock \doi{10.1007/978-0-387-84858-7}
+
+\bibitem[Jolliffe(2002)]{Jolliffe2002}
+Jolliffe, I. T. (2002).
+\newblock \emph{Principal Component Analysis} (2nd ed.).
+\newblock Springer, New York.
+\newblock \doi{10.1007/b98835}
+
+\bibitem[Matheron(1963)]{Matheron1963}
+Matheron, G. (1963).
+\newblock Principles of geostatistics.
+\newblock \emph{Economic Geology}, 58(8), 1246--1266.
+\newblock \doi{10.2113/gsecongeo.58.8.1246}
+
+\bibitem[McKay et al.(1979)]{McKay1979}
+McKay, M. D., Beckman, R. J., \& Conover, W. J. (1979).
+\newblock A comparison of three methods for selecting values of input variables
+  in the analysis of output from a computer code.
+\newblock \emph{Technometrics}, 21(2), 239--245.
+\newblock \doi{10.1080/00401706.1979.10489755}
+
+\bibitem[Nyquist(1928)]{Nyquist1928}
+Nyquist, H. (1928).
+\newblock Certain topics in telegraph transmission theory.
+\newblock \emph{Transactions of the American Institute of Electrical
+  Engineers}, 47(2), 617--644.
+\newblock \doi{10.1109/T-AIEE.1928.5055024}
+
+\bibitem[Pronzato \& M{\"u}ller(2012)]{Pronzato2012}
+Pronzato, L. \& M{\"u}ller, W. G. (2012).
+\newblock Design of computer experiments: space filling and beyond.
+\newblock \emph{Statistics and Computing}, 22(3), 681--701.
+\newblock \doi{10.1007/s11222-011-9242-3}
+
+\bibitem[Settles(2012)]{Settles2012}
+Settles, B. (2012).
+\newblock \emph{Active Learning}.
+\newblock Synthesis Lectures on Artificial Intelligence and Machine Learning.
+\newblock Morgan \& Claypool, San Rafael, CA.
+\newblock \doi{10.2200/S00429ED1V01Y201207AIM018}
+
+\bibitem[Shannon(1949)]{Shannon1949}
+Shannon, C. E. (1949).
+\newblock Communication in the presence of noise.
+\newblock \emph{Proceedings of the IRE}, 37(1), 10--21.
+\newblock \doi{10.1109/JRPROC.1949.232969}
+
+\bibitem[Webster \& Oliver(2007)]{Webster2007}
+Webster, R. \& Oliver, M. A. (2007).
+\newblock \emph{Geostatistics for Environmental Scientists} (2nd ed.).
+\newblock Wiley, Chichester.
+\newblock \doi{10.1002/9780470517277}
+
+\bibitem[Zomorodian \& Carlsson(2005)]{Zomorodian2005}
+Zomorodian, A. \& Carlsson, G. (2005).
+\newblock Computing persistent homology.
+\newblock \emph{Discrete \& Computational Geometry}, 33(2), 249--274.
+\newblock \doi{10.1007/s00454-004-1146-y}
+
+\end{thebibliography}
 
 \end{document}
 
