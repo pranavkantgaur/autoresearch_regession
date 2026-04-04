@@ -757,7 +757,10 @@ function can be perfectly reconstructed from its samples if the sampling
 density is at least twice the highest spatial frequency present in the
 function.  We adapt this framework to the tabular regression setting by
 treating the target function $y(\mathbf{x})$ as a spatial signal over the
-7-dimensional feature space \citep{Balestriero2021}.
+7-dimensional feature space.  As shown by \citet{Balestriero2021}, in
+high-dimensional spaces the training data is inherently sparse and
+learning almost always amounts to extrapolation, making sampling density
+a first-order concern.
 
 \subsection{Spatial Frequency of the Target Function}
 
@@ -811,7 +814,7 @@ Sill               & 288\,720    & 1.000 \\
 
 \subsection{$k$-NN Oracle as an Interpolation Upper Bound}
 
-The $k$-nearest-neighbours regressor \citep{Cover1967} evaluated via leave-one-out (LOO)
+The $k$-nearest-neighbours regressor \citep{Cover1967, Stone1977} evaluated via leave-one-out (LOO)
 cross-validation \citep{Arlot2010} gives a \emph{data-density-limited} upper bound on
 achievable performance: it is the best any pure interpolation strategy
 can do with the current dataset, regardless of model class
@@ -1220,6 +1223,12 @@ Shannon, C. E. (1949).
 \newblock Communication in the presence of noise.
 \newblock \emph{Proceedings of the IRE}, 37(1), 10--21.
 \newblock \doi{10.1109/JRPROC.1949.232969}
+
+\bibitem[Stone(1977)]{Stone1977}
+Stone, C. J. (1977).
+\newblock Consistent nonparametric regression.
+\newblock \emph{The Annals of Statistics}, 5(4), 595--620.
+\newblock \doi{10.1214/aos/1176343886}
 
 \bibitem[Webster \& Oliver(2007)]{Webster2007}
 Webster, R. \& Oliver, M. A. (2007).
