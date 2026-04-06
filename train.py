@@ -12,9 +12,8 @@ Usage:
 
 Dataset notes (updated_dataset_4_madam_MB_dye.xlsx):
   - 56 samples, 7 features, target = 'Adsorption capacity (mg/g)'
-  - Target skewness ~2.1 → log1p-transform applied before model fitting;
-    predictions are back-transformed (expm1) before metric computation so
-    that all reported metrics are in the original mg/g space.
+  - Target skewness ~2.1; all reported metrics are in the original
+    mg/g space.
 
 Evaluation methodology (mirrors the stability-analysis notebook):
   - N_TRIALS (default 10) random train/test splits of the combined
@@ -24,14 +23,9 @@ Evaluation methodology (mirrors the stability-analysis notebook):
   - The fixed held-out test set (from prepare_data) is used only for the
     final test_rmse / test_r2 fields; it is never touched during training.
 
-Comparison with Leave-One-Out CV (used in prior session):
-  LOO CV used ALL 47 train+val samples for each fold and reported RMSE in
-  log-space, which made it highly sensitive to the log-scale and hard to
-  interpret in original units.  The 10-trial 80/20 approach matches the
-  notebook exactly, evaluates in original mg/g space (interpretable), and
-  averages over enough splits to give a stable estimate despite the small
-  dataset size (n=47 for the train+val pool → each trial uses ~38 train / 9
-  test samples).
+  Additionally, Leave-One-Out CV is reported in the *same* original-space
+  units (via prepare.evaluate_loo_cv), providing a near-unbiased but
+  high-variance complementary estimate.
 """
 
 import os
@@ -44,7 +38,7 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.linear_model import Ridge, Lasso
 from sklearn.model_selection import train_test_split
 
-from prepare import prepare_data, evaluate, TIME_BUDGET
+from prepare import prepare_data, evaluate, evaluate_loo_cv, TIME_BUDGET
 
 # ---------------------------------------------------------------------------
 # Configuration — agent modifies this section
@@ -224,11 +218,22 @@ def main():
     train_metrics = evaluate(y_tv,    train_pred)
     test_metrics  = evaluate(y_test,  test_pred)
 
+    # -----------------------------------------------------------------------
+    # LOO CV — always in original space (via prepare.evaluate_loo_cv)
+    # -----------------------------------------------------------------------
+    loo_metrics = evaluate_loo_cv(
+        X_tv, y_tv,
+        build_model_fn=lambda seed: build_model(MODEL_TYPE, seed=seed),
+        use_log_transform=USE_LOG_TRANSFORM,
+    )
+
     # Print standardised summary (parsed by run_agent.py)
     print("---")
     print(f"val_rmse:         {val_rmse:.6f}")
     print(f"val_mae:          {val_mae:.6f}")
     print(f"val_r2:           {val_r2:.6f}")
+    print(f"loo_rmse:         {loo_metrics['loo_rmse']:.6f}")
+    print(f"loo_r2:           {loo_metrics['loo_r2']:.6f}")
     print(f"train_rmse:       {train_metrics['rmse']:.6f}")
     print(f"train_r2:         {train_metrics['r2']:.6f}")
     print(f"test_rmse:        {test_metrics['rmse']:.6f}")

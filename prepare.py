@@ -134,6 +134,54 @@ def evaluate(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Leave-One-Out CV evaluation (always in original target space)
+# ---------------------------------------------------------------------------
+
+def evaluate_loo_cv(X, y, build_model_fn, use_log_transform=False):
+    """
+    Evaluate a model via Leave-One-Out cross-validation.
+
+    Always reports metrics in the **original** target space (mg/g),
+    regardless of whether a log-transform is used during training.
+
+    Parameters
+    ----------
+    X : np.ndarray — feature matrix (n_samples, n_features), already scaled
+    y : np.ndarray — target vector in original space
+    build_model_fn : callable(seed) -> sklearn estimator
+    use_log_transform : bool — if True, fit on log1p(y) and expm1 predictions
+
+    Returns
+    -------
+    dict with keys: loo_rmse, loo_mae, loo_r2, loo_predictions
+    """
+    from sklearn.model_selection import LeaveOneOut
+
+    loo = LeaveOneOut()
+    predictions = np.zeros(len(y))
+
+    for train_idx, test_idx in loo.split(X):
+        X_tr, X_te = X[train_idx], X[test_idx]
+        y_tr = y[train_idx]
+
+        model = build_model_fn(seed=42)
+        y_fit = np.log1p(y_tr) if use_log_transform else y_tr
+        model.fit(X_tr, y_fit)
+
+        pred = model.predict(X_te)
+        if use_log_transform:
+            pred = np.expm1(pred)
+        predictions[test_idx] = pred
+
+    return {
+        "loo_rmse": float(np.sqrt(mean_squared_error(y, predictions))),
+        "loo_mae": float(mean_absolute_error(y, predictions)),
+        "loo_r2": float(r2_score(y, predictions)),
+        "loo_predictions": predictions,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Dataset generation helper (run once to create sample data)
 # ---------------------------------------------------------------------------
 

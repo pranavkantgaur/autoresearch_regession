@@ -137,7 +137,7 @@ def parse_metrics(log_text: str) -> dict:
     metrics = {}
     for line in log_text.splitlines():
         m = re.match(r"^(val_rmse|val_mae|val_r2|train_rmse|train_r2|"
-                     r"test_rmse|test_r2|train_seconds|model_type|n_features)"
+                     r"test_rmse|test_r2|loo_rmse|loo_r2|train_seconds|model_type|n_features)"
                      r"\s*:\s*(.+)$", line.strip())
         if m:
             key, val = m.group(1), m.group(2).strip()
