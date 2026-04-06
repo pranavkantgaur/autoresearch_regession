@@ -17,6 +17,9 @@
 \usepackage[numbers,sort&compress]{natbib}
 \usepackage{microtype}
 
+% doi command for bibliography
+\providecommand{\doi}[1]{\href{https://doi.org/#1}{\texttt{doi:#1}}}
+
 % -----------------------------------------------------------------------
 % Metadata
 % -----------------------------------------------------------------------
@@ -590,7 +593,9 @@ Target RMSE (mg\,g$^{-1}$) & $n_\text{train}$ required \\
 These projections assume the additional data follows the \emph{same}
 distribution as the current dataset.  If targeted sampling (see
 Section~\ref{sec:recommendations}) is used, the extrapolation can be
-considerably more optimistic.
+considerably more optimistic.  \textbf{Caveat:} the power-law fit is
+based on only 7 points over $n \in [15, 37]$; extrapolation to
+$n > 100$ is speculative and the fitted exponent may change.
 
 % -----------------------------------------------------------------------
 \section{Feature Importance and Domain Coverage Analysis}
@@ -1006,7 +1011,7 @@ GradientBoostingRegressor(
     learning_rate  = 0.07,
     max_depth      = 4,
     subsample      = 0.8,        # 80% row subsampling per boosting step
-    max_features   = 'sqrt',     # sqrt(7) ≈ 2.6 features per split
+    max_features   = 'sqrt',     # sqrt(7) ~ 2.6 features per split
     min_samples_split = 2,
     min_samples_leaf  = 1,
     random_state   = <trial seed>
@@ -1646,9 +1651,17 @@ Rank & Model & CV RMSE & CV R$^2$ & 10-trial RMSE & Best hyperparameters \\
 
 \paragraph{Interpretation.}
 \begin{enumerate}[leftmargin=*]
-  \item \textbf{Gradient Boosting is again the best model}, with a
+  \item \textbf{Gradient Boosting ranks first}, with a
         20\,mg\,g$^{-1}$ advantage over Random Forest on CV RMSE and
-        24\,mg\,g$^{-1}$ on 10-trial RMSE.
+        7.5\,mg\,g$^{-1}$ on 10-trial RMSE.
+        However, a paired Wilcoxon signed-rank test on the 10 per-trial
+        RMSEs yields $W=22$, $p=0.313$ (one-sided), meaning the
+        difference is \textbf{not statistically significant}.  The MAE
+        comparison is also non-significant ($\Delta = -14.6$, $p = 0.116$).
+        As with Dataset~4, both tree-based models perform comparably.
+  \item \textbf{GB is significantly better than SVR, Ridge, and Lasso}
+        (Wilcoxon $p \leq 0.002$ for all three), confirming the
+        non-linearity of the feature--target relationship.
   \item The \textbf{gap between tree ensembles and linear/kernel models
         is wider} than in Dataset~4: GB achieves CV R$^2 = 0.354$ vs.\
         Ridge's $-0.087$.  The dosage ratio feature appears to interact
@@ -1694,27 +1707,28 @@ split into train+val ($n=40$) and fixed held-out test ($n=8$) by
 \centering
 \caption{Per-trial metrics for the HPO-selected Gradient Boosting model on
   Dataset~5.  ``Frac.\ high'' = fraction of test samples with
-  target $>$ 90th percentile (1\,051\,mg\,g$^{-1}$).}
+  target $>$ 90th percentile (1\,051\,mg\,g$^{-1}$).
+  MAE is included as a skew-robust complement to RMSE.}
 \label{tab:ds5_per_trial}
 \small
-\begin{tabular}{rrrrrr}
+\begin{tabular}{rrrrrrr}
 \toprule
-Seed & $n_\text{train}$ & $n_\text{test}$ & Test R$^2$ & Test RMSE & Frac.\ high \\
+Seed & $n_\text{train}$ & $n_\text{test}$ & Test R$^2$ & Test RMSE & Test MAE & Frac.\ high \\
 \midrule
-521  & 32 & 8 &  0.948 &  52.7 & 0.00 \\
-737  & 32 & 8 & $-0.362$ & 144.3 & 0.00 \\
-740  & 32 & 8 &  0.760 & 311.6 & 0.25 \\
-660  & 32 & 8 &  0.888 & 182.7 & 0.12 \\
-411  & 32 & 8 &  0.925 & 130.6 & 0.12 \\
-678  & 32 & 8 &  0.705 & 170.4 & 0.00 \\
-626  & 32 & 8 &  0.792 & 293.4 & 0.12 \\
-513  & 32 & 8 &  0.849 & 207.0 & 0.12 \\
-859  & 32 & 8 &  0.543 & 214.0 & 0.00 \\
-136  & 32 & 8 &  0.882 & 171.4 & 0.12 \\
+521  & 32 & 8 &  0.948 &  52.7 &  45.3 & 0.00 \\
+737  & 32 & 8 & $-0.362$ & 144.3 &  94.9 & 0.00 \\
+740  & 32 & 8 &  0.760 & 311.6 & 227.5 & 0.25 \\
+660  & 32 & 8 &  0.888 & 182.7 & 135.8 & 0.12 \\
+411  & 32 & 8 &  0.925 & 130.6 &  84.8 & 0.12 \\
+678  & 32 & 8 &  0.705 & 170.4 & 153.5 & 0.00 \\
+626  & 32 & 8 &  0.792 & 293.4 & 200.3 & 0.12 \\
+513  & 32 & 8 &  0.849 & 207.0 & 162.5 & 0.12 \\
+859  & 32 & 8 &  0.543 & 214.0 & 164.9 & 0.00 \\
+136  & 32 & 8 &  0.882 & 171.4 & 126.8 & 0.12 \\
 \midrule
-\textbf{Mean} & & & \textbf{0.693} & \textbf{187.8} & \\
-\textbf{Std}  & & & \textbf{0.411} & \textbf{75.7}  & \\
-\textbf{CV}   & & & 0.593          & 0.403           & \\
+\textbf{Mean} & & & \textbf{0.693} & \textbf{187.8} & \textbf{139.6} & \\
+\textbf{Std}  & & & \textbf{0.411} & \textbf{75.7}  & \textbf{54.6}  & \\
+\textbf{CV}   & & & 0.593          & 0.403           & 0.391           & \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1740,8 +1754,9 @@ more uniform prediction quality across the target range.
 
 \paragraph{Observation 3: Near-independent test folds.}
 The test-set Jaccard similarity is $0.115 \pm 0.091$, close to Dataset~4's
-$0.123 \pm 0.073$ and to the theoretical minimum, confirming independent
-evaluation folds.
+$0.123 \pm 0.073$ and to the theoretical minimum.  As with Dataset~4,
+low Jaccard confirms low sample overlap between folds but does \emph{not}
+imply independence of prediction errors.
 
 \paragraph{Observation 4: Training overfitting persists.}
 Training $R^2 \in [0.999, 1.000]$ across all trials (near-perfect fit),
@@ -1768,22 +1783,81 @@ Training fold size  & $\approx 32$ of 40 (80\,\%)  & 39 of 40 (97.5\,\%) \\
 Test fold size      & 8 samples                     & 1 sample \\
 Metric space        & Original mg\,g$^{-1}$         & Original mg\,g$^{-1}$ \\
 RMSE                & $187.8 \pm 75.7$              & 220.8 \\
+MAE                 & $139.6 \pm 54.6$              & 149.5 \\
 R$^2$               & $0.693 \pm 0.411$             & 0.838 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \paragraph{Summary.}
-LOO-CV yields RMSE~$= 220.8$\,mg\,g$^{-1}$ and $R^2 = 0.838$ in
+LOO-CV yields RMSE~$= 220.8$\,mg\,g$^{-1}$ (MAE~$= 149.5$) and $R^2 = 0.838$ in
 original space — a higher RMSE than the 10-trial mean (187.8) but
-with a notably better $R^2$ (0.838 vs.\ 0.693).  The LOO-CV $R^2$
-being higher is consistent with the larger training fold (39 vs.\ 32
-samples); the higher RMSE reflects the sensitivity of single-sample
-test folds to isolated high-gradient regions.
+with a notably better $R^2$ (0.838 vs.\ 0.693).  As discussed for
+Dataset~4, the LOO estimator is deterministic but has \emph{high
+estimator variance} due to correlated folds; its $R^2$ should be
+interpreted cautiously with single-sample test folds.
+
+\paragraph{Caveat.}
+The LOO-CV and 10-trial RMSEs are not directly comparable (different
+test-fold sizes and variance properties).  The 10-fold CV RMSE of
+$221.3 \pm 153.6$ and repeated 5$\times$10 CV RMSE of
+$228.1 \pm 136.3$ provide a third reference that is broadly consistent
+with both.
 
 Compared with Dataset~4 (LOO RMSE~368.0, $R^2$~0.514), the revised
 feature set shows a substantial improvement in both metrics despite
 having fewer total samples.
+
+% -----------------------------------------------------------------------
+\subsection{Residual Diagnostics — Dataset~5}
+\label{sec:ds5_residual_diagnostics}
+% -----------------------------------------------------------------------
+
+\begin{table}[h]
+\centering
+\caption{Heteroscedasticity tests — Dataset~5 (LOO residuals).}
+\label{tab:ds5_hetero}
+\begin{tabular}{lrrl}
+\toprule
+Test & $\rho$ & $p$ & Interpretation \\
+\midrule
+Spearman($|r|$, $\hat{y}$) & 0.354 & 0.025 & Significant \\
+Spearman($|r|$, $y$)       & 0.174 & 0.281 & Not significant \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent\textbf{Finding:}  Heteroscedasticity is \emph{weaker} in
+Dataset~5 than in Dataset~4 ($\rho = 0.174$ vs.\ 0.327 for $|r|$ vs.\
+$y$).  This suggests the revised feature set produces more homogeneous
+errors across the target range, though heteroscedasticity with respect
+to predicted values remains significant.
+
+\begin{table}[h]
+\centering
+\caption{Per-quartile residual analysis — Dataset~5 (LOO predictions).}
+\label{tab:ds5_quartile_bias}
+\small
+\begin{tabular}{lrrrl}
+\toprule
+Quartile & Mean bias & MAE & Target range (mg\,g$^{-1}$) & Interpretation \\
+\midrule
+Q1 (lowest)  & $-145.3$ & 145.3 & [13, 95]     & Systematic over-prediction \\
+Q2           & $+6.3$   &  42.3 & [96, 275]    & Well-calibrated \\
+Q3           & $-5.3$   & 123.6 & [285, 526]   & Well-calibrated \\
+Q4 (highest) & $+116.6$ & 286.6 & [532, 2251]  & Severe under-prediction \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent Dataset~5 shows better calibration in Q2--Q3 (bias $\approx 0$)
+compared with Dataset~4's persistent over-prediction.  However, Q1 and
+Q4 still show strong regression-to-the-mean bias, with Q4 MAE (287) being
+2.0$\times$ Q1 MAE (145).
+
+\paragraph{Complementary metrics.}  Residual normality test:
+Shapiro--Wilk $p = 0.009$ (non-normal).  MAE below median ($\leq 280$):
+93.8; MAE above median: 205.1 (ratio 2.19).  MAPE: 135.2\,\%.
 
 % -----------------------------------------------------------------------
 \section{Dataset 5 — Learning Curve Analysis}
@@ -1854,26 +1928,30 @@ $\approx 22$ samples — reflecting the steeper learning exponent.
 \begin{table}[h]
 \centering
 \caption{Gradient Boosting feature importances — Dataset~5
-  (full 40-sample pool, HPO-selected model from Section~\ref{sec:ds5_hpo}).}
+  (full 40-sample pool, HPO-selected model from Section~\ref{sec:ds5_hpo}).
+  Permutation importance (30 repeats) is included as a less biased
+  alternative to impurity-based importance.}
 \label{tab:ds5_importance}
-\begin{tabular}{lr}
+\begin{tabular}{lrr}
 \toprule
-Feature & Importance \\
+Feature & Impurity & Permutation ($\pm$~std) \\
 \midrule
-SSA (m$^2$\,g$^{-1}$)            & 0.3911 \\
-Dosage ratio                      & 0.3444 \\
-PV (cm$^3$\,g$^{-1}$)            & 0.1497 \\
-MPD (nm)                          & 0.1066 \\
-Temperature ($^\circ$C)           & 0.0400 \\
-pH                                & 0.0098 \\
+SSA (m$^2$\,g$^{-1}$)            & 0.3911 & 0.3514 $\pm$ 0.035 \\
+Dosage ratio                      & 0.3444 & 0.3322 $\pm$ 0.027 \\
+PV (cm$^3$\,g$^{-1}$)            & 0.1081 & 0.1443 $\pm$ 0.015 \\
+MPD (nm)                          & 0.1066 & 0.0785 $\pm$ 0.015 \\
+Temperature ($^\circ$C)           & 0.0400 & 0.0646 $\pm$ 0.013 \\
+pH                                & 0.0098 & 0.0290 $\pm$ 0.007 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-SSA is now the dominant feature (importance 0.39 vs.\ 0.30 in Dataset~4),
-and the top two features (SSA, Dosage ratio) account for 74\,\% of total
-importance.  pH has negligible importance (0.010), consistent with the
-near-zero Spearman correlation ($\rho = -0.07$, $p = 0.636$).
+\paragraph{Impurity vs.\ permutation importance.}
+The top two features (SSA, Dosage ratio) are consistent across methods
+and together account for 68\,\% of permutation importance.  PV is
+elevated in permutation importance (0.144 vs.\ 0.108 impurity), while
+MPD is reduced (0.079 vs.\ 0.107), consistent with impurity-based
+overweighting of skewed features (MPD skewness $= 3.86$).
 
 \subsection{Spearman Correlations}
 
@@ -2291,9 +2369,13 @@ Target skewness                      & 2.13  & 2.27 \\
 \midrule
 10-trial mean RMSE                   & 311.0 & 187.8 \\
 10-trial RMSE std                    & 127.7 & 75.7 \\
+10-trial mean MAE                    & 212.0 & 139.6 \\
 LOO-CV RMSE (original space)         & 368.0 & 220.8 \\
+LOO-CV MAE  (original space)         & 239.2 & 149.5 \\
 LOO-CV $R^2$                         & 0.514 & 0.838 \\
 $k$-NN oracle RMSE                   & 328   & 310 \\
+Wilcoxon GB vs RF ($p$)              & 0.784 & 0.313 \\
+Heteroscedasticity $\rho$ ($|r|$ vs $y$) & 0.327 & 0.174 \\
 \midrule
 Power-law exponent $b$               & $-0.166$ & $-0.465$ \\
 Variogram range (80\,\% sill)        & 2.37  & 2.50 \\
@@ -2301,7 +2383,7 @@ Variogram nugget                     & $\approx 0$ & $\approx 21{,}000$ \\
 $\varepsilon$ for full connectivity  & 7.30  & 4.00 \\
 Max NN distance                      & 7.24  & 3.42 \\
 \midrule
-SSA importance                       & 0.299 & 0.391 \\
+SSA importance (permutation)         & 0.284 & 0.351 \\
 Feature 1 Spearman $\rho$ (SSA)      & 0.766 & 0.820 \\
 \bottomrule
 \end{tabular}
@@ -2315,20 +2397,33 @@ Feature 1 Spearman $\rho$ (SSA)      & 0.766 & 0.820 \\
         ``Equilibrium time'' variable in Dataset~4 introduced noise
         or redundancy rather than useful signal.
 
+  \item \textbf{The GB vs.\ RF ranking is not statistically significant
+        in either dataset} (Wilcoxon $p = 0.784$ for DS4, $p = 0.313$
+        for DS5).  Both tree-based ensembles are plausible choices; the
+        GB ranking is consistent but inconclusive.
+
   \item \textbf{The learning curve is no longer saturated.}  The steeper
         power-law exponent ($-0.47$ vs.\ $-0.17$) means additional data
         will produce substantial RMSE reductions.  Roughly 50 training
         samples are needed for RMSE~$\leq 200$, compared with
-        $\approx 1{,}124$ in Dataset~4.
+        $\approx 1{,}124$ in Dataset~4.  \emph{Caveat:} the power-law
+        fit is based on 7 points; extrapolation is speculative.
 
   \item \textbf{Feature-space topology is more compact.}  Full connectivity
         at $\varepsilon = 4.0$ (vs.\ 7.3) and a maximum NN distance of
         3.42 (vs.\ 7.24) indicate fewer extreme voids, enabling more
         reliable interpolation.
 
-  \item \textbf{SSA is the single most important feature} (importance 0.38,
-        Spearman $\rho = 0.820$), followed by Dosage ratio (0.30).
-        Together they account for 68\,\% of model importance.
+  \item \textbf{SSA is the single most important feature} (permutation
+        importance 0.351, Spearman $\rho = 0.820$), followed by Dosage
+        ratio (0.332).  Together they account for 68\,\% of permutation
+        importance.
+
+  \item \textbf{Heteroscedasticity is weaker} in Dataset~5
+        ($\rho = 0.174$, $p = 0.281$) than in Dataset~4
+        ($\rho = 0.327$, $p = 0.025$), suggesting the revised feature
+        set produces more homogeneous errors.  However, per-quartile
+        analysis still shows Q4 MAE (287) being 2.0$\times$ Q1 MAE (145).
 
   \item \textbf{A non-zero variogram nugget ($\approx 21{,}000$)} appeared
         in Dataset~5, suggesting modest measurement noise that places
@@ -2358,10 +2453,18 @@ Metric & Value & Interpretation \\
 \midrule
 Test R$^2$ mean $\pm$ std & $0.693 \pm 0.411$ & Very high variance \\
 Test RMSE mean $\pm$ std & $188 \pm 76$ & CV = 0.40 \\
-LOO-CV RMSE (original space) & 220.8 & Near-unbiased, single estimate \\
-LOO-CV R$^2$ (original space) & 0.838 & Substantially better than 10-trial mean \\
+Test MAE mean $\pm$ std & $140 \pm 55$ & Less sensitive to tail \\
+LOO-CV RMSE (original space) & 220.8 & High-variance estimator \\
+LOO-CV MAE  (original space) & 149.5 & Complementary metric \\
+LOO-CV R$^2$ (original space) & 0.838 & Unstable for 1-sample folds \\
 95\,\% Bootstrap CI (RMSE) & (143, 232) & $\pm$24\,\% of mean \\
-Test set Jaccard similarity & $0.115 \pm 0.091$ & Near-independent folds \\
+10-fold CV RMSE & $221 \pm 154$ & Independent calibration \\
+Repeated 5$\times$10 CV RMSE & $228 \pm 136$ & Gold-standard estimate \\
+Test set Jaccard similarity & $0.115 \pm 0.091$ & Low overlap, not independence \\
+Wilcoxon GB vs RF (RMSE) & $p = 0.313$ & \textbf{Not significant} \\
+Wilcoxon GB vs SVR (RMSE) & $p = 0.002$ & Significant \\
+Heteroscedasticity ($|r|$ vs.\ $y$) & $\rho = 0.174$, $p = 0.281$ & Not significant \\
+Residual normality (Shapiro) & $p = 0.009$ & Non-normal residuals \\
 Pearson(RMSE, test mean) & $r = 0.375$ & Not significant ($p=0.285$) \\
 Pearson(R$^2$, test max) & $r = 0.622$ & Borderline ($p=0.055$) \\
 Power-law exponent & $-0.465$ & Near root-$n$ learning \\
@@ -2410,7 +2513,8 @@ Max spatial frequency $f_\text{max}$ & 1\,708 mg\,g$^{-1}$/unit & \\
 \midrule
 $k$-NN oracle RMSE (best $k$) & 328 mg\,g$^{-1}$ & Interpolation ceiling (1-NN LOO) \\
 Best GB model RMSE (10-trial) & 311 mg\,g$^{-1}$ & HPO-selected model \\
-Best GB model RMSE (LOO-CV) & 368 mg\,g$^{-1}$ & Near-oracle, same units \\
+Best GB model MAE  (10-trial) & 212 mg\,g$^{-1}$ & Skew-robust metric \\
+Best GB model RMSE (LOO-CV) & 368 mg\,g$^{-1}$ & High-variance estimator \\
 Augmented oracle (+100 pts) & 285 mg\,g$^{-1}$ & Validates Nyquist prediction \\
 \midrule
 Nyquist $n$ for RMSE 100 & $\sim$63 uniform & Idealised estimate \\
