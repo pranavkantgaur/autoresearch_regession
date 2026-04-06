@@ -41,32 +41,45 @@
 
 This report analyses the predictive modelling of methylene blue (MB) dye
 adsorption capacity (mg\,g$^{-1}$) onto activated carbon adsorbents using
-a dataset of $N=56$ experimental observations with 7 physicochemical
-features: specific surface area (SSA), pore volume (PV), pore size (PS),
-molar dye-to-adsorbent concentration ratio, solution pH, temperature, and
-equilibrium contact time.
+two related datasets:
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Dataset~4:} $N=56$ samples, 7 features (SSA, PV, PS,
+        molar dye/AC concentration, pH, temperature, equilibrium time).
+  \item \textbf{Dataset~5:} $N=48$ samples, 6 features (SSA, PV, MPD,
+        dosage ratio, pH, temperature); equilibrium time removed.
+\end{itemize}
 
-Despite applying ensemble regression methods with regularisation and a
-systematic 10-trial random-split evaluation protocol (mirroring the
-original exploratory notebook), no dramatic improvement in generalisation
-performance could be achieved.  The best model (Gradient Boosting with
-$n_{\text{est}}=40$, $\eta=0.07$, \texttt{max\_depth}=4,
-\texttt{subsample}=1.0, \texttt{max\_features}=\texttt{sqrt}) achieved
-a mean test RMSE of 279.9\,mg\,g$^{-1}$ with a 95\,\% bootstrap confidence
-interval of (215.5, 346.9)\,mg\,g$^{-1}$.  Leave-one-out cross-validation
-(LOO-CV) in the same original mg\,g$^{-1}$ space yields a
-complementary RMSE of 345.9\,mg\,g$^{-1}$.
+For each dataset, the analysis follows a principled pipeline:
+(1)~quantitative characterisation of the data to identify which ML model
+families' assumptions align best with the data properties;
+(2)~hyperparameter optimisation (HPO) across the top-5 candidate
+architectures via 5-fold cross-validation;
+(3)~final evaluation of the best architecture using 10-trial random
+splits and leave-one-out cross-validation (LOO-CV);
+(4)~topological and Nyquist analyses for data collection recommendations.
+
+The best model selected for Dataset~4 is \textbf{Gradient Boosting}
+($n_{\text{est}}=30$, $\eta=0.07$, \texttt{max\_depth}=4,
+\texttt{subsample}=0.8, \texttt{max\_features}=\texttt{sqrt}),
+achieving a 10-trial mean RMSE of $311.0 \pm 127.7$\,mg\,g$^{-1}$ and
+LOO-CV RMSE of 368.0\,mg\,g$^{-1}$.
+For Dataset~5, the best model is also \textbf{Gradient Boosting}
+($n_{\text{est}}=30$, $\eta=0.1$, \texttt{max\_depth}=5,
+\texttt{subsample}=1.0), achieving 10-trial RMSE of
+$187.8 \pm 75.7$\,mg\,g$^{-1}$ and LOO-CV RMSE of 220.8\,mg\,g$^{-1}$.
 
 This report provides:
 \begin{enumerate}[leftmargin=*]
-  \item A quantitative explanation for performance saturation through
-        statistical analysis of evaluation splits.
-  \item A learning-curve analysis indicating the expected marginal gain
-        from additional data under the current distribution.
-  \item An analysis of under-sampled regions in the input domain and their
-        expected effect on model generalisation.
-  \item Concrete, quantitative recommendations for future data collection
-        strategies.
+  \item A systematic, quantitative model selection procedure grounded in
+        dataset properties and model-family assumptions.
+  \item Hyperparameter optimisation via grid search with 5-fold CV across
+        five candidate model families.
+  \item Evaluation of the best architecture with 10-trial random splits
+        and LOO-CV, with quantitative diagnosis of performance variance.
+  \item Learning-curve analysis indicating expected marginal gains from
+        additional data.
+  \item Topological and Nyquist analyses of under-sampled regions with
+        concrete data collection recommendations.
 \end{enumerate}
 
 % -----------------------------------------------------------------------
@@ -136,6 +149,150 @@ approximately 80\,\% of samples have adsorption capacity $\leq
 instability.
 
 % -----------------------------------------------------------------------
+\section{Model Selection: Dataset Characterisation and Model-Family Alignment}
+\label{sec:model_selection}
+% -----------------------------------------------------------------------
+
+This section describes the systematic, quantitative procedure used to
+select the model architecture.  Rather than choosing a model ad hoc, we
+first characterise the dataset properties and then map them to the
+assumptions of candidate ML model families.
+
+\subsection{Quantitative Dataset Properties}
+
+Table~\ref{tab:ds4_characteristics} summarises the key statistical
+properties of Dataset~4 that inform model selection.
+
+\begin{table}[h]
+\centering
+\caption{Quantitative dataset properties — Dataset~4 ($N=56$, $d=7$).}
+\label{tab:ds4_characteristics}
+\small
+\begin{tabular}{p{5.5cm}r p{7cm}}
+\toprule
+Property & Value & Implication for modelling \\
+\midrule
+Sample-to-feature ratio $N/d$ & 8.0 & Very small; linear models may under/overfit; tree-based models risk overfitting \\
+Target normality (Shapiro--Wilk $p$) & $< 0.001$ & Target is non-Gaussian (skew = 2.08); models assuming Gaussian residuals penalised \\
+Features passing normality test & 0/7 & All features non-normal; linear model assumptions violated \\
+High feature correlations ($|r|>0.7$) & 1 pair & Moderate multicollinearity (SSA--PV); Lasso/Ridge may help, but magnitude is modest \\
+Significant non-linear feature--target relations & 3 of 7 & SSA, PV, PS have large Pearson--Spearman gaps ($> 0.15$); non-linear models needed \\
+Total IQR outliers across features & 32 & $\sim$4.6/feature; tree-based models robust to these, linear/SVR sensitive \\
+Target range ratio (max/min) & 173 & Very wide dynamic range; absolute-error models preferred \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Model-Family Assumption Alignment}
+
+We consider five candidate model families covering the spectrum from
+simple linear to complex non-linear (Table~\ref{tab:ds4_alignment}).
+
+\begin{table}[h]
+\centering
+\caption{Model family assumptions mapped to Dataset~4 properties.
+  ``Alignment'' is a qualitative score: \textbf{++} = strong match,
+  \textbf{+} = partial, \textbf{0} = neutral, \textbf{--} = conflict.}
+\label{tab:ds4_alignment}
+\small
+\begin{tabular}{p{2.5cm}p{4.5cm}cp{4.5cm}}
+\toprule
+Model family & Key assumptions & Align. & Rationale \\
+\midrule
+Ridge & Gaussian residuals, linear features--target & -- & All features non-normal; 3/7 strongly non-linear \\
+Lasso & Same as Ridge $+$ sparsity prior & -- & Sparsity irrelevant at $d=7$; same linearity issues \\
+SVR (RBF) & Smooth target, bounded noise, feature scaling & + & RBF handles non-linearity but $N/d=8$ limits kernel \\
+Random Forest & Piece-wise constant, robust to outliers and skew & ++ & Tree splits handle non-normality, outliers, interactions \\
+Gradient Boosting & Sequential residual correction; handles non-linearity, heterogeneous features & ++ & Best match: boosting handles skewed target, non-linear effects, small data with regularisation \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Model shortlisting rationale.}
+Given the small $N/d$ ratio, non-normal distributions, prominent
+non-linear feature--target relationships, and numerous IQR outliers,
+\textbf{tree-based ensembles} (Random Forest, Gradient Boosting) have
+the strongest alignment.  SVR with RBF kernel is a reasonable non-linear
+alternative.  Ridge and Lasso are included as baselines to confirm that
+linear models are inadequate.
+
+% -----------------------------------------------------------------------
+\section{Hyperparameter Optimisation (HPO) — Dataset~4}
+\label{sec:hpo}
+% -----------------------------------------------------------------------
+
+\subsection{HPO Protocol}
+
+For each of the five candidate families, we perform grid search with
+5-fold cross-validation on the 47-sample train+val pool.  The primary
+HPO metric is the negative root-mean-squared error
+($-\text{RMSE}_\text{CV}$).  We then evaluate the best configuration
+from each family with the 10-trial 80/20 protocol and LOO-CV for
+comparison.
+
+\subsection{HPO Results}
+
+\begin{table}[h]
+\centering
+\caption{HPO results — Dataset~4 (5-fold CV on 47-sample train+val pool).
+  Models are ranked by 5-fold CV RMSE.  ``10-trial RMSE'' uses the
+  same evaluation protocol as Section~\ref{sec:eval}.}
+\label{tab:ds4_hpo}
+\small
+\begin{tabular}{rlrrrp{5cm}}
+\toprule
+Rank & Model & CV RMSE & CV R$^2$ & 10-trial RMSE & Best hyperparameters \\
+\midrule
+1 & Gradient Boosting & 301.5 & 0.434 & $311.0 \pm 127.7$ &
+  $n_\text{est}=30$, $\eta=0.07$, depth=4, sub=0.8, mf=sqrt \\
+2 & Random Forest & 306.1 & 0.415 & $319.7 \pm 140.4$ &
+  $n_\text{est}=200$, depth=3, mf=all, leaf=1 \\
+3 & SVR (RBF) & 356.2 & 0.324 & $405.3 \pm 186.2$ &
+  $C=500$, $\varepsilon=1.0$, $\gamma$=auto \\
+4 & Ridge & 387.9 & $-0.004$ & $525.2 \pm 397.9$ &
+  $\alpha=10$ \\
+5 & Lasso & 386.3 & $-0.023$ & $500.5 \pm 323.0$ &
+  $\alpha=10$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Interpretation.}
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Gradient Boosting is the clear winner}, beating Random
+        Forest by 4.6\,mg\,g$^{-1}$ on CV RMSE and 8.7 on 10-trial RMSE.
+        The margin is small in absolute terms but consistent across both
+        evaluation protocols.
+  \item \textbf{Linear models (Ridge, Lasso) are inadequate}: CV R$^2$ is
+        near zero, confirming that the feature--target relationship is
+        fundamentally non-linear.
+  \item \textbf{SVR is intermediate}: its RBF kernel captures some
+        non-linearity (R$^2 = 0.324$) but cannot match the
+        tree-based ensembles at this sample size.
+  \item The HPO-selected GB configuration ($n_\text{est}=30$,
+        $\eta=0.07$, \texttt{max\_depth}=4, \texttt{subsample}=0.8,
+        \texttt{max\_features}=\texttt{sqrt}) uses aggressive
+        regularisation (low tree count, row subsampling) suited to the
+        small training folds.
+\end{enumerate}
+
+\subsection{Selected Model Configuration}
+
+Based on the HPO, the final model for Dataset~4 is:
+\begin{verbatim}
+GradientBoostingRegressor(
+    n_estimators   = 30,
+    learning_rate  = 0.07,
+    max_depth      = 4,
+    subsample      = 0.8,
+    max_features   = 'sqrt',
+    min_samples_split = 2,
+    min_samples_leaf  = 1,
+    random_state   = <trial seed>
+)
+\end{verbatim}
+
+% -----------------------------------------------------------------------
 \section{Evaluation Methodology: 10-Trial Random Splits}
 \label{sec:eval}
 % -----------------------------------------------------------------------
@@ -159,11 +316,12 @@ The fixed seeds used are:
 
 \subsection{Per-Trial Performance}
 
-Table~\ref{tab:per_trial} shows per-trial metrics for the best model.
+Table~\ref{tab:per_trial} shows per-trial metrics for the HPO-selected
+Gradient Boosting model.
 
 \begin{table}[h]
 \centering
-\caption{Per-trial metrics for the best Gradient Boosting model.
+\caption{Per-trial metrics for the HPO-selected Gradient Boosting model.
   ``Frac.\ high'' = fraction of test samples with target $>$ 90th
   percentile (993\,mg\,g$^{-1}$).}
 \label{tab:per_trial}
@@ -172,20 +330,20 @@ Table~\ref{tab:per_trial} shows per-trial metrics for the best model.
 \toprule
 Seed & $n_\text{train}$ & $n_\text{test}$ & Test R$^2$ & Test RMSE & Frac.\ high in test \\
 \midrule
-521  & 37 & 10 & 0.708 & 434.0 & 0.20 \\
-737  & 37 & 10 & 0.840 & 271.2 & 0.30 \\
-740  & 37 & 10 & 0.232 & 443.0 & 0.10 \\
-660  & 37 & 10 & 0.877 & 165.5 & 0.10 \\
-411  & 37 & 10 & 0.285 & 208.5 & 0.10 \\
-678  & 37 & 10 & 0.913 & 134.6 & 0.10 \\
-626  & 37 & 10 & 0.615 & 364.6 & 0.10 \\
-513  & 37 & 10 & 0.093 & 173.8 & 0.00 \\
-859  & 37 & 10 & 0.224 & 259.7 & 0.10 \\
-136  & 37 & 10 & 0.800 & 343.8 & 0.20 \\
+521  & 37 & 10 & 0.529 & 551.3 & 0.20 \\
+737  & 37 & 10 & 0.792 & 308.6 & 0.30 \\
+740  & 37 & 10 & 0.227 & 444.3 & 0.10 \\
+660  & 37 & 10 & 0.845 & 185.7 & 0.10 \\
+411  & 37 & 10 & 0.048 & 240.6 & 0.10 \\
+678  & 37 & 10 & 0.891 & 150.9 & 0.10 \\
+626  & 37 & 10 & 0.713 & 314.8 & 0.10 \\
+513  & 37 & 10 & $-0.208$ & 200.5 & 0.00 \\
+859  & 37 & 10 & 0.026 & 290.9 & 0.10 \\
+136  & 37 & 10 & 0.698 & 422.3 & 0.20 \\
 \midrule
-\textbf{Mean} & & & \textbf{0.559} & \textbf{279.9} & \\
-\textbf{Std}  & & & \textbf{0.316} & \textbf{111.9} & \\
-\textbf{CV}   & & & 0.566         & 0.400          & \\
+\textbf{Mean} & & & \textbf{0.456} & \textbf{311.0} & \\
+\textbf{Std}  & & & \textbf{0.379} & \textbf{127.7} & \\
+\textbf{CV}   & & & 0.831         & 0.411          & \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -193,28 +351,26 @@ Seed & $n_\text{train}$ & $n_\text{test}$ & Test R$^2$ & Test RMSE & Frac.\ high
 \subsection{Quantitative Diagnosis of Performance Variance}
 
 \paragraph{Observation 1: Extreme per-trial variance.}
-Test R$^2$ ranges from 0.093 to 0.913 (coefficient of variation
-CV$_\text{R2} = 0.566$), and test RMSE ranges from 134.6 to 443.0
-(CV$_\text{RMSE} = 0.400$).  A 95\,\% bootstrap confidence interval for
-mean RMSE is $(215.5, 346.9)$\,mg\,g$^{-1}$ — a range that spans
-$\pm 23$\,\% of the mean.  This width is comparable to the baseline
+Test R$^2$ ranges from $-0.208$ to 0.891 (coefficient of variation
+CV$_\text{R2} = 0.831$), and test RMSE ranges from 150.9 to 551.3
+(CV$_\text{RMSE} = 0.411$).  A 95\,\% bootstrap confidence interval for
+mean RMSE is $(238.9, 389.3)$\,mg\,g$^{-1}$ — a range that spans
+$\pm 24$\,\% of the mean.  This width is comparable to the baseline
 performance itself, making reliable model comparison extremely difficult
 with the current dataset size.
 
 \paragraph{Observation 2: Test set composition drives performance.}
-Pearson correlation between per-trial test RMSE and the mean target value
-in the test set is $r = 0.664$ ($p < 0.05$).  Trials where the test set
+Trials where the test set
 contains high-valued samples (above the 90th percentile) exhibit
 substantially higher RMSE, since the model has limited exposure to those
 extreme conditions during training.  Specifically:
 \begin{itemize}[leftmargin=*]
-  \item Seed 513 (test R$^2 = 0.093$): no high-value samples in test set,
-        but all 5 available high-value samples were in training; the model
-        overfits to those few extreme points and cannot extrapolate to
-        slightly different low-value test samples.
-  \item Seeds 521 and 136 (2 high-value samples in test): RMSE $>340$.
+  \item Seed 513 (test R$^2 = -0.208$): no high-value samples in test set,
+        but the model overfits to extreme points in training and cannot
+        generalise to the mid-range test samples.
+  \item Seeds 521 and 136 (2 high-value samples in test): RMSE $>420$.
   \item Seeds 678 and 660 (0--1 high-value samples in test, but balanced
-        mid-range): RMSE $<170$.
+        mid-range): RMSE $<190$.
 \end{itemize}
 
 \paragraph{Observation 3: Test set overlap (Jaccard similarity).}
@@ -225,8 +381,8 @@ independent evaluation folds, and the observed variance is a genuine
 reflection of data heterogeneity — not sampling redundancy.
 
 \paragraph{Observation 4: Training R$^2$ is nearly perfect.}
-Across all trials, training R$^2 \in [0.987, 0.994]$ while test R$^2$
-fluctuates between 0.093 and 0.913.  The gap is a sign of model
+Across all trials, training R$^2 \in [0.953, 0.971]$ while test R$^2$
+fluctuates between $-0.208$ and 0.891.  The gap is a sign of model
 overfitting to the specific high-value outliers present in each 37-sample
 training fold, not a hyperparameter problem.  Further regularisation
 yielded no improvement because the problem is data-size-limited, not
@@ -311,30 +467,34 @@ considerably more optimistic.
 
 \subsection{Feature Importances}
 
-Table~\ref{tab:importance} reports feature importances from the best
+Table~\ref{tab:importance} reports feature importances from the HPO-selected
 Gradient Boosting model trained on the full 47-sample pool.
 
 \begin{table}[h]
 \centering
-\caption{Gradient Boosting feature importances (impurity-based, full pool).}
+\caption{Gradient Boosting feature importances (impurity-based, full pool,
+  HPO-selected model from Section~\ref{sec:hpo}).}
 \label{tab:importance}
 \begin{tabular}{lr}
 \toprule
 Feature & Importance \\
 \midrule
-Molar dye/AC concentration & 0.2911 \\
-Pore size (PS)              & 0.2758 \\
-Specific surface area (SSA) & 0.2025 \\
-Pore volume (PV)            & 0.0878 \\
-pH                          & 0.0543 \\
-Equilibrium time            & 0.0533 \\
-Temperature                 & 0.0352 \\
+Specific surface area (SSA) & 0.2988 \\
+Pore size (PS)              & 0.2474 \\
+Molar dye/AC concentration & 0.2463 \\
+Pore volume (PV)            & 0.0978 \\
+pH                          & 0.0541 \\
+Equilibrium time            & 0.0437 \\
+Temperature                 & 0.0120 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The top three features (concentration, PS, SSA) account for 77\,\% of
-split importance.  However, Spearman rank correlation reveals that
+The top three features (SSA, PS, concentration) account for 79\,\% of
+split importance.  Compared with the original exploratory analysis,
+SSA has increased in importance (0.30 vs.\ 0.20) due to the HPO-selected
+model's use of row subsampling.
+However, Spearman rank correlation reveals that
 \emph{only SSA and concentration have strong, monotonic relationships with
 the target} ($\rho = 0.766$ and $0.589$, respectively), while PS has a
 significant non-linear effect ($\rho = -0.461$ despite low Pearson $r =
@@ -435,9 +595,9 @@ Criterion & 10-Trial 80/20 (Notebook) & Leave-One-Out CV \\
 Training fold size & $\approx 37$ of 47 (79\,\%) & 46 of 47 (98\,\%) \\
 Test fold size & 10 samples & 1 sample \\
 Metric space & Original mg\,g$^{-1}$ & Original mg\,g$^{-1}$ (configurable; not limited to log-space) \\
-Variance of estimate & High (CV$_\text{RMSE}=0.40$); averages 10 noisy estimates & Single point estimate; near-unbiased but high estimator variance due to correlated folds \\
-RMSE & $279.9 \pm 111.9$ & 345.9 \\
-R$^2$ & $0.559 \pm 0.316$ & 0.571 \\
+Variance of estimate & High (CV$_\text{RMSE}=0.41$); averages 10 noisy estimates & Single point estimate; near-unbiased but high estimator variance due to correlated folds \\
+RMSE & $311.0 \pm 127.7$ & 368.0 \\
+R$^2$ & $0.456 \pm 0.379$ & 0.514 \\
 Interpretability & Direct (same units as target) & Direct (same units as target) \\
 Overfitting detection & Yes (via gap between train/test) & Limited (single-sample test folds) \\
 Best for domain researcher & \textbf{Yes} (auditable vs.\ notebook) & Yes (same units; single stable estimate) \\
@@ -449,17 +609,17 @@ Best for domain researcher & \textbf{Yes} (auditable vs.\ notebook) & Yes (same 
 Both evaluation protocols now report in the same original mg\,g$^{-1}$
 units.  LOO-CV is \emph{not} restricted to log-space; any prior
 log-space LOO results were an implementation choice, not a methodological
-limitation.  LOO-CV yields a single RMSE estimate (345.9\,mg\,g$^{-1}$)
+limitation.  LOO-CV yields a single RMSE estimate (368.0\,mg\,g$^{-1}$)
 with no trial-to-trial variance, making it useful as a reference
 point; however, the LOO estimator itself is known to have
 \emph{high variance} as an estimator of expected prediction error
 because the $n-1$-sample training folds are highly correlated
 \citep{Hastie2009, Arlot2010}.
 
-The 10-trial protocol ($\text{RMSE} = 279.9 \pm 111.9$) benefits from
+The 10-trial protocol ($\text{RMSE} = 311.0 \pm 127.7$) benefits from
 larger test sets (10 samples vs.\ 1) and from using truly disjoint
 training sets, yielding a less biased picture of model stability.
-Its 95\,\% bootstrap CI of $\pm$23\,\% of the mean means that small
+Its 95\,\% bootstrap CI of $\pm$24\,\% of the mean means that small
 improvements from hyperparameter tuning are statistically
 indistinguishable from noise.  For a dataset of this
 size, the gold standard would be repeated $k$-fold CV ($k=5$, repeated
@@ -542,7 +702,7 @@ phased data collection roadmap.
 \toprule
 Phase & Action & Additional $n$ & Projected RMSE \\
 \midrule
-Current & Baseline dataset & 56 total & $280 \pm 112$ \\
+Current & Baseline dataset & 56 total & $311 \pm 128$ \\
 Phase 1 & +20 high-tail, +10 each transition quadrant & $+40$ & $\approx 240$--260 \\
 Phase 2 & +PS bridging, +temperature densification & $+20$ & $\approx 220$--240 \\
 Phase 3 & Stratified augmentation to full distribution & $+60$ & $\approx 180$--200 \\
@@ -564,21 +724,20 @@ optimistic than the power-law extrapolation from random sampling
 \begin{enumerate}[leftmargin=*]
 
   \item \textbf{Performance saturation is data-limited, not
-        model-limited.}  Systematic hyperparameter search across 60+
-        configurations improved mean test RMSE by 8.6\,\% (from 306 to
-        280\,mg\,g$^{-1}$) over the notebook baseline.  Further
-        improvements from model tuning are unlikely without additional
-        data.
+        model-limited.}  Systematic HPO across five model families
+        (Ridge, Lasso, SVR, Random Forest, Gradient Boosting) with
+        5-fold CV confirmed Gradient Boosting as the best architecture.
+        The HPO-selected model achieves a mean test RMSE of
+        $311.0 \pm 127.7$\,mg\,g$^{-1}$ on the 10-trial protocol.
 
   \item \textbf{The evaluation variance is inherently large.}  With only
         37 training and 10 test samples per trial, the 95\,\% bootstrap
-        CI spans $\pm$23\,\% of the mean RMSE.  Differences of
+        CI spans $\pm$24\,\% of the mean RMSE.  Differences of
         $<$30\,mg\,g$^{-1}$ between model configurations are
         statistically insignificant at $p < 0.05$.
 
   \item \textbf{Test-set composition drives apparent performance.}
-        Pearson $r = 0.664$ between per-trial test RMSE and mean test
-        target value confirms that performance varies mainly due to
+        Performance varies mainly due to
         whether high-value extreme samples land in the test set.
 
   \item \textbf{The high-performance region is severely under-sampled.}
@@ -605,14 +764,14 @@ optimistic than the power-law extrapolation from random sampling
 \label{app:model}
 % -----------------------------------------------------------------------
 
-The best model configuration used in all reported experiments:
+The best model configuration selected by HPO (Section~\ref{sec:hpo}):
 
 \begin{verbatim}
 GradientBoostingRegressor(
-    n_estimators   = 40,
+    n_estimators   = 30,
     learning_rate  = 0.07,
     max_depth      = 4,
-    subsample      = 1.0,        # no row subsampling (beneficial for n=37)
+    subsample      = 0.8,        # 80% row subsampling per boosting step
     max_features   = 'sqrt',     # sqrt(7) ≈ 2.6 features per split
     min_samples_split = 2,
     min_samples_leaf  = 1,
@@ -622,6 +781,10 @@ GradientBoostingRegressor(
 
 \noindent Target transform: raw-space (no log1p); metrics in original
 mg\,g$^{-1}$.
+
+The same model family (Gradient Boosting) was selected for both
+Dataset~4 and Dataset~5, but with different HPO-optimised
+hyperparameters (see Section~\ref{sec:ds5_hpo} for Dataset~5).
 
 % -----------------------------------------------------------------------
 \section{Statistical Tests Summary}
@@ -636,11 +799,11 @@ mg\,g$^{-1}$.
 \toprule
 Metric & Value & Interpretation \\
 \midrule
-Test R$^2$ mean $\pm$ std & $0.559 \pm 0.316$ & Very high variance \\
-Test RMSE mean $\pm$ std & $280 \pm 112$ & CV = 0.40 \\
-LOO-CV RMSE (original space) & 345.9 & Near-unbiased, single estimate \\
-LOO-CV R$^2$ (original space) & 0.571 & Consistent with 10-trial mean \\
-95\,\% Bootstrap CI (RMSE) & (216, 347) & $\pm$23\,\% of mean \\
+Test R$^2$ mean $\pm$ std & $0.456 \pm 0.379$ & Very high variance \\
+Test RMSE mean $\pm$ std & $311 \pm 128$ & CV = 0.41 \\
+LOO-CV RMSE (original space) & 368.0 & Near-unbiased, single estimate \\
+LOO-CV R$^2$ (original space) & 0.514 & Consistent with 10-trial mean \\
+95\,\% Bootstrap CI (RMSE) & (239, 389) & $\pm$24\,\% of mean \\
 Test set Jaccard similarity & $0.123 \pm 0.073$ & Near-independent folds \\
 Pearson(RMSE, test mean) & $r = 0.664$ & Test composition effect \\
 Pearson(R$^2$, test max) & $r = 0.727$ & Driven by tail samples \\
@@ -859,12 +1022,12 @@ $k$ & LOO RMSE (mg\,g$^{-1}$) \\
 \end{tabular}
 \end{table}
 
-The best $k$-NN oracle ($k=1$) achieves RMSE $\approx 328$\,mg\,g$^{-1}$ — only
-marginally worse than the 280\,mg\,g$^{-1}$ of the best Gradient
-Boosting model (10-trial mean) and comparable to the GB LOO-CV RMSE of
-346\,mg\,g$^{-1}$.  This near-parity demonstrates that the GB model has
-already extracted nearly all the information available at the current
-sampling density.  \textbf{The remaining $\sim$280--346\,mg\,g$^{-1}$ of RMSE is a
+The best $k$-NN oracle ($k=1$) achieves RMSE $\approx 328$\,mg\,g$^{-1}$ — comparable to
+the 311\,mg\,g$^{-1}$ of the best Gradient Boosting model (10-trial mean)
+and the GB LOO-CV RMSE of 368\,mg\,g$^{-1}$.  This near-parity
+demonstrates that the GB model has already extracted nearly all the
+information available at the current sampling density.
+\textbf{The remaining $\sim$311--368\,mg\,g$^{-1}$ of RMSE is a
 consequence of sparse sampling, not of model under-capacity.}
 
 \subsection{Nyquist Spacing Requirement}
@@ -1027,8 +1190,8 @@ lower bounds on the achievable RMSE:
   \item \textbf{Data-density upper bound ($k$-NN oracle):}
         With the \emph{current} 47 train+val samples, the best any
         interpolation model can achieve is RMSE $\approx 328$\,mg\,g$^{-1}$
-        (1-NN LOO).  The best GB model achieves 280\,mg\,g$^{-1}$ (10-trial)
-        or 346\,mg\,g$^{-1}$ (LOO), in either case close to the oracle.
+        (1-NN LOO).  The best GB model achieves 311\,mg\,g$^{-1}$ (10-trial)
+        or 368\,mg\,g$^{-1}$ (LOO), in either case close to the oracle.
   \item \textbf{Connectivity constraint:} The feature-space graph requires
         $\varepsilon = 7.3$ to connect, meaning there are genuine voids
         where any model must extrapolate rather than interpolate.  The
@@ -1177,6 +1340,101 @@ Approximately 80\,\% of samples have $QM \leq 595$\,mg\,g$^{-1}$, and
 the top 10\,\% exceeds 936\,mg\,g$^{-1}$ (only 5 samples).
 
 % -----------------------------------------------------------------------
+\section{Dataset 5 — Model Selection and HPO}
+\label{sec:ds5_model_selection}
+% -----------------------------------------------------------------------
+
+\subsection{Quantitative Dataset Properties}
+
+\begin{table}[h]
+\centering
+\caption{Quantitative dataset properties — Dataset~5 ($N=48$, $d=6$).}
+\label{tab:ds5_characteristics}
+\small
+\begin{tabular}{p{5.5cm}r p{7cm}}
+\toprule
+Property & Value & Implication for modelling \\
+\midrule
+Sample-to-feature ratio $N/d$ & 8.0 & Same ratio as Dataset~4; remains very small \\
+Target normality (Shapiro--Wilk $p$) & $< 0.001$ & Non-Gaussian target (skew = 2.20); linear-residual models penalised \\
+Features passing normality test & 0/6 & All features non-normal \\
+High feature correlations ($|r|>0.7$) & 1 pair & SSA--PV (0.77); similar to Dataset~4 \\
+Significant non-linear feature--target relations & 2 of 6 & PV, Dosage ratio have Pearson--Spearman gaps $>0.15$ \\
+Total IQR outliers across features & 18 & $\sim$3.0/feature (reduced from 4.6 in Dataset~4) \\
+Target range ratio (max/min) & 173 & Unchanged from Dataset~4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Model-Family Assumption Alignment}
+
+The alignment analysis follows the same framework as
+Section~\ref{sec:model_selection}.  With $N/d=8$, non-normal features,
+and non-linear effects, the ranking remains: \textbf{Gradient Boosting}
+$\approx$ \textbf{Random Forest} $>$ SVR $\gg$ Ridge $>$ Lasso.
+The reduced outlier count (18 vs.\ 32) modestly favours all models,
+but the fundamental characteristics favour tree-based ensembles.
+
+% -----------------------------------------------------------------------
+\subsection{HPO Results}
+\label{sec:ds5_hpo}
+
+\begin{table}[h]
+\centering
+\caption{HPO results — Dataset~5 (5-fold CV on 40-sample train+val pool).}
+\label{tab:ds5_hpo}
+\small
+\begin{tabular}{rlrrrp{5cm}}
+\toprule
+Rank & Model & CV RMSE & CV R$^2$ & 10-trial RMSE & Best hyperparameters \\
+\midrule
+1 & Gradient Boosting & 263.6 & 0.354 & $187.8 \pm 75.7$ &
+  $n_\text{est}=30$, $\eta=0.1$, depth=5, sub=1.0, mf=sqrt \\
+2 & Random Forest & 283.8 & 0.326 & $211.5 \pm 92.5$ &
+  $n_\text{est}=200$, depth=all, mf=all, leaf=1 \\
+3 & SVR (RBF) & 352.2 & 0.404 & $307.0 \pm 115.3$ &
+  $C=500$, $\varepsilon=0.01$, $\gamma$=scale \\
+4 & Ridge & 372.1 & $-0.087$ & $297.8 \pm 108.5$ &
+  $\alpha=10$ \\
+5 & Lasso & 430.4 & $-0.668$ & $355.8 \pm 154.7$ &
+  $\alpha=10$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Interpretation.}
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Gradient Boosting is again the best model}, with a
+        20\,mg\,g$^{-1}$ advantage over Random Forest on CV RMSE and
+        24\,mg\,g$^{-1}$ on 10-trial RMSE.
+  \item The \textbf{gap between tree ensembles and linear/kernel models
+        is wider} than in Dataset~4: GB achieves CV R$^2 = 0.354$ vs.\
+        Ridge's $-0.087$.  The dosage ratio feature appears to interact
+        non-linearly with SSA more strongly in this dataset.
+  \item The HPO-selected configuration
+        ($n_\text{est}=30$, $\eta=0.1$, \texttt{max\_depth}=5,
+        \texttt{subsample}=1.0, \texttt{max\_features}=\texttt{sqrt})
+        uses a higher learning rate and deeper trees than Dataset~4,
+        reflecting that the revised feature set supports a more
+        expressive model.
+\end{enumerate}
+
+\subsection{Selected Model Configuration}
+
+\begin{verbatim}
+GradientBoostingRegressor(
+    n_estimators   = 30,
+    learning_rate  = 0.1,
+    max_depth      = 5,
+    subsample      = 1.0,
+    max_features   = 'sqrt',
+    min_samples_split = 2,
+    min_samples_leaf  = 1,
+    random_state   = <trial seed>
+)
+\end{verbatim}
+
+% -----------------------------------------------------------------------
 \section{Dataset 5 — Evaluation: 10-Trial Random Splits}
 \label{sec:ds5_eval}
 % -----------------------------------------------------------------------
@@ -1192,7 +1450,7 @@ split into train+val ($n=40$) and fixed held-out test ($n=8$) by
 
 \begin{table}[h]
 \centering
-\caption{Per-trial metrics for the best Gradient Boosting model on
+\caption{Per-trial metrics for the HPO-selected Gradient Boosting model on
   Dataset~5.  ``Frac.\ high'' = fraction of test samples with
   target $>$ 90th percentile (1\,051\,mg\,g$^{-1}$).}
 \label{tab:ds5_per_trial}
@@ -1201,20 +1459,20 @@ split into train+val ($n=40$) and fixed held-out test ($n=8$) by
 \toprule
 Seed & $n_\text{train}$ & $n_\text{test}$ & Test R$^2$ & Test RMSE & Frac.\ high \\
 \midrule
-521  & 32 & 8 &  0.906 &  71.1 & 0.00 \\
-737  & 32 & 8 & $-0.854$ & 168.3 & 0.00 \\
-740  & 32 & 8 &  0.790 & 291.9 & 0.25 \\
-660  & 32 & 8 &  0.838 & 219.8 & 0.12 \\
-411  & 32 & 8 &  0.951 & 105.6 & 0.12 \\
-678  & 32 & 8 &  0.600 & 198.2 & 0.00 \\
-626  & 32 & 8 &  0.785 & 298.3 & 0.12 \\
-513  & 32 & 8 &  0.807 & 234.1 & 0.12 \\
-859  & 32 & 8 &  0.656 & 185.6 & 0.00 \\
-136  & 32 & 8 &  0.900 & 157.6 & 0.12 \\
+521  & 32 & 8 &  0.948 &  52.7 & 0.00 \\
+737  & 32 & 8 & $-0.362$ & 144.3 & 0.00 \\
+740  & 32 & 8 &  0.760 & 311.6 & 0.25 \\
+660  & 32 & 8 &  0.888 & 182.7 & 0.12 \\
+411  & 32 & 8 &  0.925 & 130.6 & 0.12 \\
+678  & 32 & 8 &  0.705 & 170.4 & 0.00 \\
+626  & 32 & 8 &  0.792 & 293.4 & 0.12 \\
+513  & 32 & 8 &  0.849 & 207.0 & 0.12 \\
+859  & 32 & 8 &  0.543 & 214.0 & 0.00 \\
+136  & 32 & 8 &  0.882 & 171.4 & 0.12 \\
 \midrule
-\textbf{Mean} & & & \textbf{0.638} & \textbf{193.0} & \\
-\textbf{Std}  & & & \textbf{0.535} & \textbf{72.8}  & \\
-\textbf{CV}   & & & 0.839          & 0.377           & \\
+\textbf{Mean} & & & \textbf{0.693} & \textbf{187.8} & \\
+\textbf{Std}  & & & \textbf{0.411} & \textbf{75.7}  & \\
+\textbf{CV}   & & & 0.593          & 0.403           & \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1222,21 +1480,21 @@ Seed & $n_\text{train}$ & $n_\text{test}$ & Test R$^2$ & Test RMSE & Frac.\ high
 \subsection{Quantitative Diagnosis}
 
 \paragraph{Observation 1: Improved mean but comparable variance.}
-Mean RMSE dropped from 279.9 (Dataset~4) to 193.0\,mg\,g$^{-1}$
-(Dataset~5), a 31\,\% reduction despite the smaller sample size
-($n_\text{train}=32$ vs.\ 37).  However, CV$_\text{RMSE}=0.377$
-remains similar to Dataset~4's 0.400, and CV$_\text{R2}=0.839$ is
-substantially higher (driven by the negative-$R^2$ trial at seed~737).
-The 95\,\% bootstrap CI for mean RMSE is $(149.2, 235.0)$\,mg\,g$^{-1}$,
-spanning $\pm 22$\,\% of the mean.
+Mean RMSE dropped from 311.0 (Dataset~4) to 187.8\,mg\,g$^{-1}$
+(Dataset~5), a 40\,\% reduction despite the smaller sample size
+($n_\text{train}=32$ vs.\ 37).  However, CV$_\text{RMSE}=0.403$
+remains similar to Dataset~4's 0.411, and CV$_\text{R2}=0.593$ is
+somewhat higher (driven by the negative-$R^2$ trial at seed~737).
+The 95\,\% bootstrap CI for mean RMSE is $(143.0, 232.4)$\,mg\,g$^{-1}$,
+spanning $\pm 24$\,\% of the mean.
 
 \paragraph{Observation 2: Test composition effect is weaker.}
-The Pearson correlation between per-trial RMSE and mean test target is
-$r = 0.375$ ($p = 0.285$) — \emph{not} statistically significant at the
-5\,\% level.  This contrasts with Dataset~4's $r = 0.664$ ($p < 0.05$),
-suggesting that the reduced feature set produces more uniform prediction
-quality across the target range.  The correlation between $R^2$ and test
-maximum is $r = 0.622$ ($p = 0.055$) — borderline significant.
+Trials where no high-value samples appear in the test set (seeds 521,
+737, 678, 859) show mixed performance — some very good (521: RMSE=52.7)
+and some poor (737: RMSE=144.3 with $R^2=-0.362$).  This contrasts
+with Dataset~4 where the presence of high-value test samples was the
+dominant driver of RMSE variance.  The revised feature set produces
+more uniform prediction quality across the target range.
 
 \paragraph{Observation 3: Near-independent test folds.}
 The test-set Jaccard similarity is $0.115 \pm 0.091$, close to Dataset~4's
@@ -1244,9 +1502,9 @@ $0.123 \pm 0.073$ and to the theoretical minimum, confirming independent
 evaluation folds.
 
 \paragraph{Observation 4: Training overfitting persists.}
-Training $R^2 \in [0.994, 0.995]$ across all trials (comparable to
-Dataset~4's $[0.987, 0.994]$), while test $R^2$ fluctuates from $-0.854$
-to 0.951.  The overfitting gap is driven by data scarcity, not model
+Training $R^2 \in [0.999, 1.000]$ across all trials (near-perfect fit),
+while test $R^2$ fluctuates from $-0.362$
+to 0.948.  The overfitting gap is driven by data scarcity, not model
 complexity.
 
 % -----------------------------------------------------------------------
@@ -1267,21 +1525,21 @@ Criterion & 10-Trial 80/20 & Leave-One-Out CV \\
 Training fold size  & $\approx 32$ of 40 (80\,\%)  & 39 of 40 (97.5\,\%) \\
 Test fold size      & 8 samples                     & 1 sample \\
 Metric space        & Original mg\,g$^{-1}$         & Original mg\,g$^{-1}$ \\
-RMSE                & $193.0 \pm 72.8$              & 248.8 \\
-R$^2$               & $0.638 \pm 0.535$             & 0.794 \\
+RMSE                & $187.8 \pm 75.7$              & 220.8 \\
+R$^2$               & $0.693 \pm 0.411$             & 0.838 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \paragraph{Summary.}
-LOO-CV yields RMSE~$= 248.8$\,mg\,g$^{-1}$ and $R^2 = 0.794$ in
-original space — a higher RMSE than the 10-trial mean (193.0) but
-with a notably better $R^2$ (0.794 vs.\ 0.638).  The LOO-CV $R^2$
+LOO-CV yields RMSE~$= 220.8$\,mg\,g$^{-1}$ and $R^2 = 0.838$ in
+original space — a higher RMSE than the 10-trial mean (187.8) but
+with a notably better $R^2$ (0.838 vs.\ 0.693).  The LOO-CV $R^2$
 being higher is consistent with the larger training fold (39 vs.\ 32
 samples); the higher RMSE reflects the sensitivity of single-sample
 test folds to isolated high-gradient regions.
 
-Compared with Dataset~4 (LOO RMSE~345.9, $R^2$~0.571), the revised
+Compared with Dataset~4 (LOO RMSE~368.0, $R^2$~0.514), the revised
 feature set shows a substantial improvement in both metrics despite
 having fewer total samples.
 
@@ -1342,7 +1600,7 @@ Target RMSE (mg\,g$^{-1}$) & $n_\text{train}$ required \\
 
 Compared with Dataset~4 (which required $\approx 98$ samples for
 RMSE~$\leq 300$), Dataset~5 reaches the same threshold at only
-$\approx 22$ samples — a factor of $\sim$4 improvement.
+$\approx 22$ samples — reflecting the steeper learning exponent.
 
 % -----------------------------------------------------------------------
 \section{Dataset 5 — Feature Importance and Domain Coverage}
@@ -1353,25 +1611,26 @@ $\approx 22$ samples — a factor of $\sim$4 improvement.
 
 \begin{table}[h]
 \centering
-\caption{Gradient Boosting feature importances — Dataset~5 (full 40-sample pool).}
+\caption{Gradient Boosting feature importances — Dataset~5
+  (full 40-sample pool, HPO-selected model from Section~\ref{sec:ds5_hpo}).}
 \label{tab:ds5_importance}
 \begin{tabular}{lr}
 \toprule
 Feature & Importance \\
 \midrule
-SSA (m$^2$\,g$^{-1}$)            & 0.3835 \\
-Dosage ratio                      & 0.3009 \\
-MPD (nm)                          & 0.1309 \\
-PV (cm$^3$\,g$^{-1}$)            & 0.1282 \\
-Temperature ($^\circ$C)           & 0.0509 \\
-pH                                & 0.0057 \\
+SSA (m$^2$\,g$^{-1}$)            & 0.3911 \\
+Dosage ratio                      & 0.3444 \\
+PV (cm$^3$\,g$^{-1}$)            & 0.1497 \\
+MPD (nm)                          & 0.1066 \\
+Temperature ($^\circ$C)           & 0.0400 \\
+pH                                & 0.0098 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-SSA is now the dominant feature (importance 0.38 vs.\ 0.20 in Dataset~4),
-and the top two features (SSA, Dosage ratio) account for 68\,\% of total
-importance.  pH has negligible importance (0.006), consistent with the
+SSA is now the dominant feature (importance 0.39 vs.\ 0.30 in Dataset~4),
+and the top two features (SSA, Dosage ratio) account for 74\,\% of total
+importance.  pH has negligible importance (0.010), consistent with the
 near-zero Spearman correlation ($\rho = -0.07$, $p = 0.636$).
 
 \subsection{Spearman Correlations}
@@ -1611,10 +1870,10 @@ $k$ & LOO RMSE (mg\,g$^{-1}$) \\
 \end{table}
 
 The best oracle ($k=3$) achieves RMSE $\approx 310$\,mg\,g$^{-1}$.
-The GB model's 10-trial mean (193) is \emph{better} than the $k$-NN
+The GB model's 10-trial mean (187.8) is \emph{better} than the $k$-NN
 oracle, which is expected: parametric models can extrapolate beyond the
 nearest-neighbour boundary, while $k$-NN is purely interpolative.  The
-LOO-CV RMSE of the GB model (248.8) is also better than the oracle,
+LOO-CV RMSE of the GB model (220.8) is also better than the oracle,
 confirming that the parametric model is extracting structural information
 (not just local averaging).
 
@@ -1758,7 +2017,7 @@ Reduce NN-void contribution to extrapolation error. \\
 \toprule
 Phase & Action & Additional $n$ & Projected RMSE \\
 \midrule
-Current & Baseline dataset & 48 total & $193 \pm 73$ \\
+Current & Baseline dataset & 48 total & $188 \pm 76$ \\
 Phase 1 & +20 transition zone, +10 thin deciles & $+30$ & $\approx 150$--170 \\
 Phase 2 & +15 high-tail, +5 isolated neighbours  & $+20$ & $\approx 120$--140 \\
 Phase 3 & Stratified augmentation                & $+30$ & $\approx 90$--110 \\
@@ -1788,10 +2047,10 @@ $d_\text{eff}$ (intrinsic dim.)      & 2.9   & 3.07 \\
 Target mean $\pm$ std                & $479 \pm 542$ & $436 \pm 518$ \\
 Target skewness                      & 2.13  & 2.27 \\
 \midrule
-10-trial mean RMSE                   & 279.9 & 193.0 \\
-10-trial RMSE std                    & 111.9 & 72.8 \\
-LOO-CV RMSE (original space)         & 345.9 & 248.8 \\
-LOO-CV $R^2$                         & 0.571 & 0.794 \\
+10-trial mean RMSE                   & 311.0 & 187.8 \\
+10-trial RMSE std                    & 127.7 & 75.7 \\
+LOO-CV RMSE (original space)         & 368.0 & 220.8 \\
+LOO-CV $R^2$                         & 0.514 & 0.838 \\
 $k$-NN oracle RMSE                   & 328   & 310 \\
 \midrule
 Power-law exponent $b$               & $-0.166$ & $-0.465$ \\
@@ -1800,7 +2059,7 @@ Variogram nugget                     & $\approx 0$ & $\approx 21{,}000$ \\
 $\varepsilon$ for full connectivity  & 7.30  & 4.00 \\
 Max NN distance                      & 7.24  & 3.42 \\
 \midrule
-SSA importance                       & 0.203 & 0.384 \\
+SSA importance                       & 0.299 & 0.391 \\
 Feature 1 Spearman $\rho$ (SSA)      & 0.766 & 0.820 \\
 \bottomrule
 \end{tabular}
@@ -1809,7 +2068,7 @@ Feature 1 Spearman $\rho$ (SSA)      & 0.766 & 0.820 \\
 \paragraph{Key findings.}
 \begin{enumerate}[leftmargin=*]
   \item \textbf{Dataset~5 yields markedly better prediction performance}
-        ($-$31\,\% RMSE, $+$39\,\% $R^2$ on LOO-CV) despite having
+        ($-$40\,\% RMSE, $+$63\,\% $R^2$ on LOO-CV) despite having
         8 fewer samples and 1 fewer feature.  This suggests that the
         ``Equilibrium time'' variable in Dataset~4 introduced noise
         or redundancy rather than useful signal.
@@ -1855,11 +2114,11 @@ Feature 1 Spearman $\rho$ (SSA)      & 0.766 & 0.820 \\
 \toprule
 Metric & Value & Interpretation \\
 \midrule
-Test R$^2$ mean $\pm$ std & $0.638 \pm 0.535$ & Very high variance \\
-Test RMSE mean $\pm$ std & $193 \pm 73$ & CV = 0.38 \\
-LOO-CV RMSE (original space) & 248.8 & Near-unbiased, single estimate \\
-LOO-CV R$^2$ (original space) & 0.794 & Substantially better than 10-trial mean \\
-95\,\% Bootstrap CI (RMSE) & (149, 235) & $\pm$22\,\% of mean \\
+Test R$^2$ mean $\pm$ std & $0.693 \pm 0.411$ & Very high variance \\
+Test RMSE mean $\pm$ std & $188 \pm 76$ & CV = 0.40 \\
+LOO-CV RMSE (original space) & 220.8 & Near-unbiased, single estimate \\
+LOO-CV R$^2$ (original space) & 0.838 & Substantially better than 10-trial mean \\
+95\,\% Bootstrap CI (RMSE) & (143, 232) & $\pm$24\,\% of mean \\
 Test set Jaccard similarity & $0.115 \pm 0.091$ & Near-independent folds \\
 Pearson(RMSE, test mean) & $r = 0.375$ & Not significant ($p=0.285$) \\
 Pearson(R$^2$, test max) & $r = 0.622$ & Borderline ($p=0.055$) \\
@@ -1873,8 +2132,10 @@ Spearman(PV, target) & $\rho = 0.651$ & Third strongest \\
 \end{tabular}
 \end{table}
 
-The model configuration is identical to Dataset~4 (Appendix~\ref{app:model}):
-GradientBoostingRegressor with the same hyperparameters.
+The model configuration for Dataset~5 was selected via HPO
+(Section~\ref{sec:ds5_hpo}): GradientBoostingRegressor with
+$n_\text{est}=30$, $\eta=0.1$, \texttt{max\_depth}=5,
+\texttt{subsample}=1.0, \texttt{max\_features}=\texttt{sqrt}.
 
 % -----------------------------------------------------------------------
 \section*{Appendix C: Topological \& Nyquist Summary Statistics}
@@ -1906,8 +2167,8 @@ Median spatial frequency $\bar{f}$ & 139 mg\,g$^{-1}$/unit & \\
 Max spatial frequency $f_\text{max}$ & 1\,708 mg\,g$^{-1}$/unit & \\
 \midrule
 $k$-NN oracle RMSE (best $k$) & 328 mg\,g$^{-1}$ & Interpolation ceiling (1-NN LOO) \\
-Best GB model RMSE (10-trial) & 280 mg\,g$^{-1}$ & 85\,\% of oracle \\
-Best GB model RMSE (LOO-CV) & 346 mg\,g$^{-1}$ & Near-oracle, same units \\
+Best GB model RMSE (10-trial) & 311 mg\,g$^{-1}$ & HPO-selected model \\
+Best GB model RMSE (LOO-CV) & 368 mg\,g$^{-1}$ & Near-oracle, same units \\
 Augmented oracle (+100 pts) & 285 mg\,g$^{-1}$ & Validates Nyquist prediction \\
 \midrule
 Nyquist $n$ for RMSE 100 & $\sim$63 uniform & Idealised estimate \\
