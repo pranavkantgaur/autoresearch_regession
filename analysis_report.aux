@@ -1,0 +1,74 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{2}{section.1}\protected@file@percent }
+\newlabel{sec:intro}{{1}{2}{Introduction}{section.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Dataset Overview}{2}{section.2}\protected@file@percent }
+\newlabel{sec:dataset}{{2}{2}{Dataset Overview}{section.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Descriptive Statistics}{2}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Skewness and Data Quality Issues}{2}{subsection.2.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Descriptive statistics of the dataset.}}{3}{table.caption.2}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{tab:descriptive}{{1}{3}{Descriptive statistics of the dataset}{table.caption.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Skewness and outlier counts per feature.}}{3}{table.caption.3}\protected@file@percent }
+\newlabel{tab:skewness}{{2}{3}{Skewness and outlier counts per feature}{table.caption.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Model Selection: Dataset Characterisation and Model-Family Alignment}{3}{section.3}\protected@file@percent }
+\newlabel{sec:model_selection}{{3}{3}{Model Selection: Dataset Characterisation and Model-Family Alignment}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Quantitative Dataset Properties}{3}{subsection.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Model-Family Assumption Alignment}{3}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Model shortlisting rationale.}{3}{section*.6}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Quantitative dataset properties — Dataset~4 ($N=56$, $d=7$).}}{4}{table.caption.4}\protected@file@percent }
+\newlabel{tab:ds4_characteristics}{{3}{4}{Quantitative dataset properties — Dataset~4 ($N=56$, $d=7$)}{table.caption.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Hyperparameter Optimisation (HPO) — Dataset~4}{4}{section.4}\protected@file@percent }
+\newlabel{sec:hpo}{{4}{4}{Hyperparameter Optimisation (HPO) — Dataset~4}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}HPO Protocol}{4}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}HPO Results}{4}{subsection.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Interpretation.}{4}{section*.8}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Model family assumptions mapped to Dataset~4 properties. ``Alignment'' is a qualitative score: \textbf  {++} = strong match, \textbf  {+} = partial, \textbf  {0} = neutral, \textbf  {--} = conflict.}}{5}{table.caption.5}\protected@file@percent }
+\newlabel{tab:ds4_alignment}{{4}{5}{Model family assumptions mapped to Dataset~4 properties. ``Alignment'' is a qualitative score: \textbf {++} = strong match, \textbf {+} = partial, \textbf {0} = neutral, \textbf {--} = conflict}{table.caption.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces HPO results — Dataset~4 (5-fold CV on 47-sample train+val pool). Models are ranked by 5-fold CV RMSE. ``10-trial RMSE'' uses the same evaluation protocol as Section~\ref {sec:eval}.}}{5}{table.caption.7}\protected@file@percent }
+\newlabel{tab:ds4_hpo}{{5}{5}{HPO results — Dataset~4 (5-fold CV on 47-sample train+val pool). Models are ranked by 5-fold CV RMSE. ``10-trial RMSE'' uses the same evaluation protocol as Section~\ref {sec:eval}}{table.caption.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Selected Model Configuration}{5}{subsection.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Evaluation Methodology: 10-Trial Random Splits}{6}{section.5}\protected@file@percent }
+\newlabel{sec:eval}{{5}{6}{Evaluation Methodology: 10-Trial Random Splits}{section.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Protocol Description}{6}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Per-Trial Performance}{6}{subsection.5.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Per-trial metrics for the HPO-selected Gradient Boosting model. ``Frac.\ high'' = fraction of test samples with target $>$ 90th percentile (993\,mg\,g$^{-1}$).}}{6}{table.caption.9}\protected@file@percent }
+\newlabel{tab:per_trial}{{6}{6}{Per-trial metrics for the HPO-selected Gradient Boosting model. ``Frac.\ high'' = fraction of test samples with target $>$ 90th percentile (993\,mg\,g$^{-1}$)}{table.caption.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Quantitative Diagnosis of Performance Variance}{6}{subsection.5.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Observation 1: Extreme per-trial variance.}{6}{section*.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Observation 2: Test set composition drives performance.}{7}{section*.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Observation 3: Test set overlap (Jaccard similarity).}{7}{section*.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Observation 4: Training R$^2$ is nearly perfect.}{7}{section*.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Learning Curve Analysis}{7}{section.6}\protected@file@percent }
+\newlabel{sec:learning}{{6}{7}{Learning Curve Analysis}{section.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Empirical Learning Curve}{7}{subsection.6.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Learning curve: mean test RMSE and standard deviation (100 random trials, testing on all remaining samples) for different training set sizes drawn from the 47-sample train+val pool.}}{7}{table.caption.14}\protected@file@percent }
+\newlabel{tab:learning_curve}{{7}{7}{Learning curve: mean test RMSE and standard deviation (100 random trials, testing on all remaining samples) for different training set sizes drawn from the 47-sample train+val pool}{table.caption.14}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Power-Law Fit and Saturation}{8}{subsection.6.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Projected training set size to achieve a target mean RMSE, extrapolating the fitted power law from the current 47-sample pool.}}{8}{table.caption.15}\protected@file@percent }
+\newlabel{tab:projection}{{8}{8}{Projected training set size to achieve a target mean RMSE, extrapolating the fitted power law from the current 47-sample pool}{table.caption.15}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Feature Importance and Domain Coverage Analysis}{8}{section.7}\protected@file@percent }
+\newlabel{sec:features}{{7}{8}{Feature Importance and Domain Coverage Analysis}{section.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Feature Importances}{8}{subsection.7.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Gradient Boosting feature importances (impurity-based, full pool, HPO-selected model from Section~\ref {sec:hpo}).}}{8}{table.caption.16}\protected@file@percent }
+\newlabel{tab:importance}{{9}{8}{Gradient Boosting feature importances (impurity-based, full pool, HPO-selected model from Section~\ref {sec:hpo})}{table.caption.16}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Input Domain Coverage Gaps}{9}{subsection.7.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Sample density and mean adsorption capacity in the four quadrants of the SSA--concentration space (split at medians: SSA$_\text  {med}=920$\,m$^2$\,g$^{-1}$, conc$_\text  {med}=0.88$\,mg\,g$^{-1}$).}}{9}{table.caption.17}\protected@file@percent }
+\newlabel{tab:quadrant}{{10}{9}{Sample density and mean adsorption capacity in the four quadrants of the SSA--concentration space (split at medians: SSA$_\text {med}=920$\,m$^2$\,g$^{-1}$, conc$_\text {med}=0.88$\,mg\,g$^{-1}$)}{table.caption.17}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Target Distribution Gaps}{9}{subsection.7.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Number of samples per decile of adsorption capacity.}}{9}{table.caption.18}\protected@file@percent }
+\newlabel{tab:decile}{{11}{9}{Number of samples per decile of adsorption capacity}{table.caption.18}{}}
+\citation{Hastie2009,Arlot2010}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Statistical Comparison: Notebook Evaluation vs.\ LOO-CV}{10}{section.8}\protected@file@percent }
+\newlabel{sec:eval_comparison}{{8}{10}{Statistical Comparison: Notebook Evaluation vs.\ LOO-CV}{section.8}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Comparison of the two evaluation methodologies used in this project. LOO-CV results are reported in the \emph  {same} original mg\,g$^{-1}$ space as the 10-trial protocol.}}{10}{table.caption.19}\protected@file@percent }
+\newlabel{tab:eval_comparison}{{12}{10}{Comparison of the two evaluation methodologies used in this project. LOO-CV results are reported in the \emph {same} original mg\,g$^{-1}$ space as the 10-trial protocol}{table.caption.19}{}}
+\@writefile{toc}{\contentsline {paragraph}{Summary.}{10}{section*.20}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9}Quantitative Recommendations for Dataset Collection}{10}{section.9}\protected@file@percent }
+\newlabel{sec:recommendations}{{9}{10}{Quantitative Recommendations for Dataset Collection}{section.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.1}Priority 1: Increase Coverage of High-Performance Region}{10}{subsection.9.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.2}Priority 2: Fill the Transition Quadrants}{11}{subsection.9.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.3}Priority 3: Address Pore Size Outliers}{11}{subsection.9.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.4}Priority 4: Densify Temperature Coverage}{11}{subsection.9.4}\protected@file@percent }

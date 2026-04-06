@@ -10,10 +10,13 @@ Usage:
     python train.py
     DATASET_PATH=my_data.xlsx TARGET_COLUMN=price python train.py
 
-Dataset notes (updated_dataset_4_madam_MB_dye.xlsx):
-  - 56 samples, 7 features, target = 'Adsorption capacity (mg/g)'
-  - Target skewness ~2.1; all reported metrics are in the original
-    mg/g space.
+Current configuration targets Dataset 5 (updated_dataset_5_madam_MB_dye.xlsx):
+  - 48 samples, 6 features, target = 'QM mg/g Y'
+  - Hyperparameters selected via 5-fold CV HPO (see analysis_report.tex
+    Section "Dataset 5 — Model Selection and HPO").
+  - For Dataset 4 (56 samples, 7 features, target = 'Adsorption capacity
+    (mg/g)'), the HPO-selected GB config is: n_estimators=30,
+    learning_rate=0.07, max_depth=4, subsample=0.8, max_features='sqrt'.
 
 Evaluation methodology (mirrors the stability-analysis notebook):
   - N_TRIALS (default 10) random train/test splits of the combined
@@ -59,24 +62,24 @@ TRIAL_SEEDS = [521, 737, 740, 660, 411, 678, 626, 513, 859, 136]
 # when True).  For GradientBoosting the raw-space target performs better.
 USE_LOG_TRANSFORM = False
 
-# Hyperparameters for each model type
+# Hyperparameters for each model type (tuned for Dataset 5 via HPO)
 RANDOM_FOREST_PARAMS = {
     "n_estimators": 200,
-    "max_depth": 5,
+    "max_depth": None,          # unlimited depth; HPO-selected for Dataset 5
     "min_samples_split": 2,
     "min_samples_leaf": 1,
-    "max_features": None,   # use all features — best for this 7-feature dataset
+    "max_features": None,       # use all features
     "n_jobs": -1,
-    "random_state": 42,     # overridden per-trial below
+    "random_state": 42,         # overridden per-trial below
 }
 
 GRADIENT_BOOSTING_PARAMS = {
-    "n_estimators": 30,
-    "learning_rate": 0.1,
-    "max_depth": 5,
+    "n_estimators": 30,         # HPO-selected for Dataset 5
+    "learning_rate": 0.1,       # HPO-selected for Dataset 5
+    "max_depth": 5,             # HPO-selected for Dataset 5
     "min_samples_split": 2,
     "min_samples_leaf": 1,
-    "subsample": 1.0,
+    "subsample": 1.0,           # HPO-selected for Dataset 5
     "max_features": "sqrt",
     "random_state": 42,
 }
