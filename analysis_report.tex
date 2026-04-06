@@ -1098,6 +1098,784 @@ well-targeted experiments is approximately:
 This is consistent with the power-law projection from Section~\ref{sec:learning}
 and with the simulation result (100 interpolated points $\to$ RMSE 285\,mg\,g$^{-1}$).
 
+% =======================================================================
+%
+%            DATASET 5:  FOLLOW-UP ANALYSIS
+%
+% =======================================================================
+
+\newpage
+\part{Dataset 5 — Revised Feature Set}
+
+This part repeats the analysis of Part~I on a revised version of the
+methylene blue (MB) dye adsorption dataset
+(\texttt{updated\_dataset\_5\_madam\_MB\_dye.xlsx}).  The revised dataset
+drops the ``Equilibrium time'' feature and renames columns, yielding
+$N=48$ observations with 6 input features and the same adsorption
+capacity target (``QM\,mg/g\,Y'').  All methodology, code infrastructure,
+and statistical tests are identical to Part~I; only the data change.
+
+% -----------------------------------------------------------------------
+\section{Dataset 5 Overview}
+\label{sec:ds5_dataset}
+% -----------------------------------------------------------------------
+
+\subsection{Descriptive Statistics}
+
+\begin{table}[h]
+\centering
+\caption{Descriptive statistics — Dataset~5 ($N=48$, 6 features).}
+\label{tab:ds5_descriptive}
+\small
+\begin{tabular}{lrrrrrrr}
+\toprule
+Feature & Mean & Std & Min & Q1 & Median & Q3 & Max \\
+\midrule
+SSA (m$^2$\,g$^{-1}$)            & 1031 & 763  & 1.6   & 492   & 896  & 1547 & 2869 \\
+PV (cm$^3$\,g$^{-1}$)            & 0.64 & 0.46 & 0.001 & 0.35  & 0.60 & 0.84 & 2.05 \\
+MPD (nm)                          & 3.53 & 3.76 & 0.74  & 1.89  & 2.43 & 3.31 & 23.4 \\
+Dosage ratio (g\,L$_\text{dye}^{-1}$/g\,L$_\text{AC}^{-1}$)
+                                  & 0.59 & 0.86 & 0.003 & 0.10  & 0.26 & 0.57 & 4.29 \\
+pH                                & 8.50 & 1.87 & 6.0   & 7.0   & 8.0  & 11.0 & 12.0 \\
+Temperature ($^\circ$C)           & 29.3 & 7.43 & 20    & 25    & 27.5 & 30   & 55   \\
+\midrule
+\textbf{QM (mg\,g$^{-1}$)}       & 436  & 518  & 13    & 133   & 277  & 458  & 2251 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Compared with Dataset~4 (Section~\ref{sec:dataset}), the sample size
+decreased from 56 to 48, ``Equilibrium time'' was removed, and the
+``Molar dye/AC concentration'' feature was replaced by a ``Dosage ratio''
+expressed in g\,L$^{-1}$ units.  The target distribution is structurally
+similar (mean~436 vs.\ 479, std~518 vs.\ 542, max~2251 in both).
+
+\subsection{Skewness and Outliers}
+
+\begin{table}[h]
+\centering
+\caption{Skewness and IQR outlier counts — Dataset~5.}
+\label{tab:ds5_skewness}
+\small
+\begin{tabular}{lrrl}
+\toprule
+Feature & Skewness & Outliers (IQR) & Interpretation \\
+\midrule
+SSA                      & 0.82 & 0 & Approximately symmetric \\
+PV                       & 1.16 & 2 & Right-skewed \\
+MPD                      & 3.86 & 5 & Extremely skewed \\
+Dosage ratio             & 2.54 & 6 & Right-skewed \\
+pH                       & 0.33 & 0 & Nearly symmetric \\
+Temperature              & 1.99 & 5 & Clustered at 25--30\,$^\circ$C \\
+\textbf{Target (QM)}     & \textbf{2.27} & \textbf{5} & \textbf{Strongly right-skewed} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The target skewness (2.27) is slightly higher than in Dataset~4 (2.13).
+Approximately 80\,\% of samples have $QM \leq 595$\,mg\,g$^{-1}$, and
+the top 10\,\% exceeds 936\,mg\,g$^{-1}$ (only 5 samples).
+
+% -----------------------------------------------------------------------
+\section{Dataset 5 — Evaluation: 10-Trial Random Splits}
+\label{sec:ds5_eval}
+% -----------------------------------------------------------------------
+
+\subsection{Protocol}
+
+The same protocol as Section~\ref{sec:eval} is used: the 48 samples are
+split into train+val ($n=40$) and fixed held-out test ($n=8$) by
+\texttt{prepare.py}, then the 40-sample pool is re-split 10 times
+(80/20) with the same seeds.
+
+\subsection{Per-Trial Performance}
+
+\begin{table}[h]
+\centering
+\caption{Per-trial metrics for the best Gradient Boosting model on
+  Dataset~5.  ``Frac.\ high'' = fraction of test samples with
+  target $>$ 90th percentile (1\,051\,mg\,g$^{-1}$).}
+\label{tab:ds5_per_trial}
+\small
+\begin{tabular}{rrrrrr}
+\toprule
+Seed & $n_\text{train}$ & $n_\text{test}$ & Test R$^2$ & Test RMSE & Frac.\ high \\
+\midrule
+521  & 32 & 8 &  0.906 &  71.1 & 0.00 \\
+737  & 32 & 8 & $-0.854$ & 168.3 & 0.00 \\
+740  & 32 & 8 &  0.790 & 291.9 & 0.25 \\
+660  & 32 & 8 &  0.838 & 219.8 & 0.12 \\
+411  & 32 & 8 &  0.951 & 105.6 & 0.12 \\
+678  & 32 & 8 &  0.600 & 198.2 & 0.00 \\
+626  & 32 & 8 &  0.785 & 298.3 & 0.12 \\
+513  & 32 & 8 &  0.807 & 234.1 & 0.12 \\
+859  & 32 & 8 &  0.656 & 185.6 & 0.00 \\
+136  & 32 & 8 &  0.900 & 157.6 & 0.12 \\
+\midrule
+\textbf{Mean} & & & \textbf{0.638} & \textbf{193.0} & \\
+\textbf{Std}  & & & \textbf{0.535} & \textbf{72.8}  & \\
+\textbf{CV}   & & & 0.839          & 0.377           & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Quantitative Diagnosis}
+
+\paragraph{Observation 1: Improved mean but comparable variance.}
+Mean RMSE dropped from 279.9 (Dataset~4) to 193.0\,mg\,g$^{-1}$
+(Dataset~5), a 31\,\% reduction despite the smaller sample size
+($n_\text{train}=32$ vs.\ 37).  However, CV$_\text{RMSE}=0.377$
+remains similar to Dataset~4's 0.400, and CV$_\text{R2}=0.839$ is
+substantially higher (driven by the negative-$R^2$ trial at seed~737).
+The 95\,\% bootstrap CI for mean RMSE is $(149.2, 235.0)$\,mg\,g$^{-1}$,
+spanning $\pm 22$\,\% of the mean.
+
+\paragraph{Observation 2: Test composition effect is weaker.}
+The Pearson correlation between per-trial RMSE and mean test target is
+$r = 0.375$ ($p = 0.285$) — \emph{not} statistically significant at the
+5\,\% level.  This contrasts with Dataset~4's $r = 0.664$ ($p < 0.05$),
+suggesting that the reduced feature set produces more uniform prediction
+quality across the target range.  The correlation between $R^2$ and test
+maximum is $r = 0.622$ ($p = 0.055$) — borderline significant.
+
+\paragraph{Observation 3: Near-independent test folds.}
+The test-set Jaccard similarity is $0.115 \pm 0.091$, close to Dataset~4's
+$0.123 \pm 0.073$ and to the theoretical minimum, confirming independent
+evaluation folds.
+
+\paragraph{Observation 4: Training overfitting persists.}
+Training $R^2 \in [0.994, 0.995]$ across all trials (comparable to
+Dataset~4's $[0.987, 0.994]$), while test $R^2$ fluctuates from $-0.854$
+to 0.951.  The overfitting gap is driven by data scarcity, not model
+complexity.
+
+% -----------------------------------------------------------------------
+\section{Dataset 5 — Statistical Comparison: 10-Trial vs.\ LOO-CV}
+\label{sec:ds5_eval_comparison}
+% -----------------------------------------------------------------------
+
+\begin{table}[h]
+\centering
+\caption{Evaluation methodology comparison — Dataset~5.  Both protocols
+  report in original mg\,g$^{-1}$ space.}
+\label{tab:ds5_eval_comparison}
+\small
+\begin{tabular}{p{4cm}p{5.5cm}p{5.5cm}}
+\toprule
+Criterion & 10-Trial 80/20 & Leave-One-Out CV \\
+\midrule
+Training fold size  & $\approx 32$ of 40 (80\,\%)  & 39 of 40 (97.5\,\%) \\
+Test fold size      & 8 samples                     & 1 sample \\
+Metric space        & Original mg\,g$^{-1}$         & Original mg\,g$^{-1}$ \\
+RMSE                & $193.0 \pm 72.8$              & 248.8 \\
+R$^2$               & $0.638 \pm 0.535$             & 0.794 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Summary.}
+LOO-CV yields RMSE~$= 248.8$\,mg\,g$^{-1}$ and $R^2 = 0.794$ in
+original space — a higher RMSE than the 10-trial mean (193.0) but
+with a notably better $R^2$ (0.794 vs.\ 0.638).  The LOO-CV $R^2$
+being higher is consistent with the larger training fold (39 vs.\ 32
+samples); the higher RMSE reflects the sensitivity of single-sample
+test folds to isolated high-gradient regions.
+
+Compared with Dataset~4 (LOO RMSE~345.9, $R^2$~0.571), the revised
+feature set shows a substantial improvement in both metrics despite
+having fewer total samples.
+
+% -----------------------------------------------------------------------
+\section{Dataset 5 — Learning Curve Analysis}
+\label{sec:ds5_learning}
+% -----------------------------------------------------------------------
+
+\subsection{Empirical Learning Curve}
+
+\begin{table}[h]
+\centering
+\caption{Learning curve — Dataset~5 (100 random trials per size,
+  testing on all remaining samples from the 40-sample pool).}
+\label{tab:ds5_learning_curve}
+\begin{tabular}{rrrr}
+\toprule
+$n_\text{train}$ & Mean RMSE (mg\,g$^{-1}$) & Std RMSE & CV \\
+\midrule
+12 & 374 & 138 & 0.37 \\
+15 & 345 & 131 & 0.38 \\
+18 & 328 & 127 & 0.39 \\
+22 & 316 & 131 & 0.41 \\
+26 & 277 & 121 & 0.44 \\
+28 & 266 & 106 & 0.40 \\
+32 & 226 &  97 & 0.43 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Power-Law Fit}
+
+\begin{equation}
+\text{RMSE}(n) \approx 1233.9 \cdot n^{-0.465}, \quad r = -0.957
+\end{equation}
+
+The exponent $b \approx -0.47$ is markedly steeper than Dataset~4's
+$b \approx -0.17$, approaching the root-$n$ regime ($b = -0.5$).
+This indicates that Dataset~5 is \textbf{not yet saturated}: each
+additional sample still yields a meaningful reduction in RMSE.
+
+\begin{table}[h]
+\centering
+\caption{Projected training set size to achieve target RMSE —
+  Dataset~5 (power-law extrapolation).}
+\label{tab:ds5_projection}
+\begin{tabular}{rr}
+\toprule
+Target RMSE (mg\,g$^{-1}$) & $n_\text{train}$ required \\
+\midrule
+250  & $\approx 31$ \\
+200  & $\approx 50$ \\
+150  & $\approx 93$ \\
+100  & $\approx 222$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Compared with Dataset~4 (which required $\approx 98$ samples for
+RMSE~$\leq 300$), Dataset~5 reaches the same threshold at only
+$\approx 22$ samples — a factor of $\sim$4 improvement.
+
+% -----------------------------------------------------------------------
+\section{Dataset 5 — Feature Importance and Domain Coverage}
+\label{sec:ds5_features}
+% -----------------------------------------------------------------------
+
+\subsection{Feature Importances}
+
+\begin{table}[h]
+\centering
+\caption{Gradient Boosting feature importances — Dataset~5 (full 40-sample pool).}
+\label{tab:ds5_importance}
+\begin{tabular}{lr}
+\toprule
+Feature & Importance \\
+\midrule
+SSA (m$^2$\,g$^{-1}$)            & 0.3835 \\
+Dosage ratio                      & 0.3009 \\
+MPD (nm)                          & 0.1309 \\
+PV (cm$^3$\,g$^{-1}$)            & 0.1282 \\
+Temperature ($^\circ$C)           & 0.0509 \\
+pH                                & 0.0057 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+SSA is now the dominant feature (importance 0.38 vs.\ 0.20 in Dataset~4),
+and the top two features (SSA, Dosage ratio) account for 68\,\% of total
+importance.  pH has negligible importance (0.006), consistent with the
+near-zero Spearman correlation ($\rho = -0.07$, $p = 0.636$).
+
+\subsection{Spearman Correlations}
+
+\begin{table}[h]
+\centering
+\caption{Spearman rank correlations with the target — Dataset~5.}
+\label{tab:ds5_spearman}
+\begin{tabular}{lrr}
+\toprule
+Feature & $\rho$ & $p$-value \\
+\midrule
+SSA            &  0.820 & $<0.001$ \\
+PV             &  0.651 & $<0.001$ \\
+Dosage ratio   &  0.571 & $<0.001$ \\
+MPD            & $-0.336$ & 0.020 \\
+Temp           &  0.194 & 0.186 \\
+pH             & $-0.070$ & 0.636 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+SSA's Spearman correlation increased from 0.766 (Dataset~4) to 0.820,
+while PV increased from 0.594 to 0.651.  Temperature and pH remain
+statistically non-significant.
+
+\subsection{Quadrant Analysis (SSA vs.\ Dosage Ratio)}
+
+\begin{table}[h]
+\centering
+\caption{Sample density and mean target in SSA--Dosage quadrants
+  (split at medians: SSA$_\text{med}=896$, Dosage$_\text{med}=0.26$).}
+\label{tab:ds5_quadrant}
+\begin{tabular}{lrr}
+\toprule
+Region & $n$ & Mean target (mg\,g$^{-1}$) \\
+\midrule
+Low SSA / Low Dosage   & 17 & $157 \pm 100$ \\
+High SSA / Low Dosage  &  7 & $523 \pm 353$ \\
+Low SSA / High Dosage  &  8 & $169 \pm 111$ \\
+High SSA / High Dosage & 16 & $827 \pm 695$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The imbalance is qualitatively similar to Dataset~4: off-diagonal
+quadrants (15 samples, 31\,\%) are under-represented relative to the
+diagonal (33 samples, 69\,\%).  The high-SSA/high-Dosage quadrant
+(std~695) again exhibits the widest dispersion.
+
+\subsection{Target Distribution by Decile}
+
+\begin{table}[h]
+\centering
+\caption{Samples per target decile — Dataset~5.}
+\label{tab:ds5_decile}
+\small
+\begin{tabular}{rrl}
+\toprule
+Range (mg\,g$^{-1}$) & $n$ & Note \\
+\midrule
+  13 -- 42   & 5 & \\
+  42 -- 90   & 5 & \\
+  90 -- 194  & 5 & \\
+ 194 -- 223  & 4 & \\
+ 223 -- 277  & 5 & \\
+ 277 -- 303  & 5 & \\
+ 303 -- 398  & 4 & \\
+ 398 -- 595  & 5 & \\
+ 595 -- 936  & 5 & \\
+ 936 -- 2251 & 5 & \textbf{Tail: 5 samples over 100$\times$ range} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The decile structure is broadly similar to Dataset~4, with two
+thin deciles (194--223 and 303--398) having only 4 samples each.
+The top decile spans 936--2251\,mg\,g$^{-1}$ — a factor of 2.4.
+
+% -----------------------------------------------------------------------
+\section{Dataset 5 — Topological Analysis}
+\label{sec:ds5_topology}
+% -----------------------------------------------------------------------
+
+\subsection{Intrinsic Dimensionality}
+
+\begin{table}[h]
+\centering
+\caption{Intrinsic dimensionality estimates — Dataset~5.}
+\label{tab:ds5_intdim}
+\begin{tabular}{lrl}
+\toprule
+Method & Estimate & Notes \\
+\midrule
+PCA (90\,\% variance threshold) & 5 PCs & 87.8\,\% at 4 PCs \\
+Two-Nearest-Neighbour (2NN) & 3.07 & \\
+Correlation dimension          & 2.96 & $r=0.994$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The intrinsic dimensionality ($d_\text{eff} \approx 3.0$) is slightly
+higher than Dataset~4's 2.9 despite having one fewer ambient feature (6
+vs.\ 7).  This suggests that the removed ``Equilibrium time'' feature
+was largely redundant.
+
+\subsection{Connectivity and Voids}
+
+\begin{table}[h]
+\centering
+\caption{Vietoris--Rips connectivity — Dataset~5 (standardised feature space).}
+\label{tab:ds5_connectivity}
+\begin{tabular}{rr}
+\toprule
+$\varepsilon$ & Components \\
+\midrule
+0.5  & 45 \\
+1.0  & 20 \\
+1.5  & 11 \\
+2.0  &  9 \\
+2.5  &  5 \\
+3.0  &  3 \\
+4.0  &  1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Full connectivity is reached at $\varepsilon \approx 4.0$ — substantially
+lower than Dataset~4's 7.3.  This confirms that the revised dataset has
+fewer extreme voids in the feature space.
+
+\subsection{Isolated Samples}
+
+Samples with nearest-neighbour distance $> 2 \times \text{median}$
+($2 \times 0.882 = 1.76$) are listed in Table~\ref{tab:ds5_isolated}.
+
+\begin{table}[h]
+\centering
+\caption{Isolated samples — Dataset~5 (NN distance $> 1.76$).}
+\label{tab:ds5_isolated}
+\begin{tabular}{rrrp{7cm}}
+\toprule
+Index & $y$ (mg\,g$^{-1}$) & NN distance & Significance \\
+\midrule
+43 & 220  & 3.42 & \textbf{Most isolated}; nearest sample 3.42 units away \\
+ 6 & 1684 & 3.12 & High-performance isolated point \\
+ 5 & 16   & 2.91 & Low-performance isolated point \\
+11 & 980  & 2.86 & High-mid isolated point \\
+ 1 & 195  & 2.46 & Mid-range isolated point \\
+30 & 644  & 2.23 & Mid-range isolated point \\
+ 7 & 2080 & 2.22 & High-performance isolated point \\
+15 & 269  & 1.91 & Mid-range isolated point \\
+40 & 916  & 1.79 & High-mid isolated point \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Nine samples (18.8\,\%) are isolated — higher than Dataset~4's 7 (12.5\,\%).
+However, the maximum NN distance is 3.42 (vs.\ 7.24), indicating that
+while more samples sit in local voids, no single sample is as extremely
+isolated as Dataset~4's sample~30.
+
+% -----------------------------------------------------------------------
+\section{Dataset 5 — Nyquist Analysis}
+\label{sec:ds5_nyquist}
+% -----------------------------------------------------------------------
+
+\subsection{Spatial Frequency}
+
+Using all $\binom{48}{2} = 1{,}128$ sample pairs in standardised feature
+space:
+\begin{itemize}[leftmargin=*]
+  \item Median gradient: $102.7$\,mg\,g$^{-1}$/unit
+  \item 95th-percentile gradient: $507$\,mg\,g$^{-1}$/unit
+  \item Maximum gradient: $1{,}657$\,mg\,g$^{-1}$/unit
+\end{itemize}
+
+The median spatial frequency is lower than Dataset~4's 139.4, reflecting
+a smoother target response surface on average.
+
+\subsection{Semivariogram}
+
+\begin{table}[h]
+\centering
+\caption{Experimental semivariogram — Dataset~5.
+  Sill $= \text{Var}(y) = 263{,}003$ (mg\,g$^{-1}$)$^2$,
+  $\sigma_y = 513$\,mg\,g$^{-1}$.}
+\label{tab:ds5_variogram}
+\small
+\begin{tabular}{lrr}
+\toprule
+Distance $h$ range & $\gamma(h)$ & $\gamma(h)/\text{sill}$ \\
+\midrule
+$[0.23,\;1.36)$ &  19\,519 & 0.07 \\
+$[1.36,\;1.80)$ &  24\,415 & 0.09 \\
+$[1.80,\;2.22)$ &  67\,336 & 0.26 \\
+$[2.22,\;2.56)$ & 111\,534 & 0.42 \\
+$[2.56,\;2.99)$ & 202\,879 & 0.77 \\
+$[2.99,\;3.41)$ & 332\,715 & 1.27 \\
+$[3.41,\;3.93)$ & 450\,057 & 1.71 \\
+$[3.93,\;4.38)$ & 527\,843 & 2.01 \\
+$[4.38,\;5.33)$ & 395\,461 & 1.50 \\
+$[5.33,\;8.73)$ & 547\,882 & 2.08 \\
+\midrule
+Nugget $\gamma(0)$    & $\approx 21{,}283$ & 0.08 \\
+Sill                  & 263\,003 & 1.000 \\
+\textbf{Range} (80\,\% sill) & $h \approx 2.50$ & — \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The nugget is approximately 21\,000 (8\,\% of the sill), compared with
+near-zero in Dataset~4.  This small but non-negligible nugget suggests
+a modest level of measurement noise or micro-scale variability, implying
+that RMSE cannot approach zero even with arbitrarily dense sampling.
+The variogram range ($h \approx 2.50$) is similar to Dataset~4's 2.37.
+
+\subsection{$k$-NN Oracle}
+
+\begin{table}[h]
+\centering
+\caption{$k$-NN Oracle LOO-CV RMSE on the 40-sample train+val pool —
+  Dataset~5 (original mg\,g$^{-1}$ space).}
+\label{tab:ds5_knn_oracle}
+\begin{tabular}{rr}
+\toprule
+$k$ & LOO RMSE (mg\,g$^{-1}$) \\
+\midrule
+1  & 328 \\
+2  & 339 \\
+3  & 310 \\
+5  & 338 \\
+7  & 380 \\
+10 & 407 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The best oracle ($k=3$) achieves RMSE $\approx 310$\,mg\,g$^{-1}$.
+The GB model's 10-trial mean (193) is \emph{better} than the $k$-NN
+oracle, which is expected: parametric models can extrapolate beyond the
+nearest-neighbour boundary, while $k$-NN is purely interpolative.  The
+LOO-CV RMSE of the GB model (248.8) is also better than the oracle,
+confirming that the parametric model is extracting structural information
+(not just local averaging).
+
+\subsection{Nyquist Requirements}
+
+Using $d_\text{eff} = 3.07$, $\bar{f} = 102.7$, and $L = 8.73$:
+
+\begin{table}[h]
+\centering
+\caption{Nyquist sampling requirement — Dataset~5.}
+\label{tab:ds5_nyquist_req}
+\begin{tabular}{rrr}
+\toprule
+Target RMSE (mg\,g$^{-1}$) & Required spacing $\delta$ & $n_\text{required}$ \\
+\midrule
+300 & 5.84 &   3 \\
+200 & 3.89 &  12 \\
+150 & 2.92 &  29 \\
+100 & 1.95 & 100 \\
+ 50 & 0.97 & 839 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The Nyquist estimate for RMSE~$\leq 100$ requires $\sim$100 uniformly
+distributed samples, consistent with the power-law projection of
+$\approx 222$ training samples (the excess accounts for non-uniformity
+of the current distribution).
+
+\subsection{Data Augmentation Simulation}
+
+\begin{table}[h]
+\centering
+\caption{$k$-NN ($k=3$) LOO RMSE on original 48 samples after adding
+  interpolated synthetic training points — Dataset~5.}
+\label{tab:ds5_augmentation}
+\begin{tabular}{rr}
+\toprule
+$n_\text{extra}$ & LOO RMSE (mg\,g$^{-1}$) \\
+\midrule
+  0 & 288 \\
+ 10 & 288 \\
+ 20 & 284 \\
+ 30 & 247 \\
+ 50 & 172 \\
+100 & 109 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Adding 100 interpolated points reduces the $k$-NN oracle RMSE from
+288 to 109\,mg\,g$^{-1}$ ($-$62\,\%), a steeper improvement than
+Dataset~4's $-$22\,\% with the same augmentation count.
+
+% -----------------------------------------------------------------------
+\section{Dataset 5 — Recommendations}
+\label{sec:ds5_recommendations}
+% -----------------------------------------------------------------------
+
+\subsection{Per-Decile Sampling Deficit}
+
+\begin{table}[h]
+\centering
+\caption{Intra-decile density analysis — Dataset~5.
+  Deficit estimated via
+  $n_\text{extra} = n_\text{current}\,((\delta/\delta_\text{med})^{d_\text{eff}}-1)$,
+  where $\delta_\text{med} = 0.882$.}
+\label{tab:ds5_decile_deficit}
+\small
+\begin{tabular}{lrrr}
+\toprule
+Target decile (mg\,g$^{-1}$) & $n$ & Spacing & Deficit \\
+\midrule
+$[\phantom{00}13,\;\phantom{0}42)$ & 5 & 1.67 & $+30$ \\
+$[\phantom{00}42,\;\phantom{0}90)$ & 5 & 1.41 & $+16$ \\
+$[\phantom{00}90,\;194)$            & 5 & 1.12 & $+5$  \\
+$[194,\;223)$                       & 4 & 3.31 & $+227$ \\
+$[223,\;277)$                       & 5 & 1.54 & $+22$ \\
+$[277,\;303)$                       & 5 & 1.71 & $+33$ \\
+$[303,\;398)$                       & 4 & 1.44 & $+14$ \\
+$[398,\;595)$                       & 5 & 0.99 & $+2$  \\
+$[595,\;936)$                       & 5 & 1.71 & $+32$ \\
+$[936,\;2251]$                      & 5 & 1.85 & $+43$ \\
+\midrule
+\textbf{Total deficit}              & & & $+424$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The most under-sampled decile ($[194, 223)$, deficit $+227$) is a narrow
+range with only 4 samples spread over 3.31 spacing units — the highest
+ratio in either dataset.  This appears to be a transition region between
+low-performance and mid-performance adsorbents.
+
+\subsection{Revised Data Collection Strategy}
+
+\begin{table}[h]
+\centering
+\caption{Recommended data collection strategy — Dataset~5.}
+\label{tab:ds5_recommendations}
+\small
+\begin{tabular}{p{4.5cm}rp{7cm}}
+\toprule
+Region & $n_\text{min}$ & Rationale \\
+\midrule
+SSA $\in [600,1400]$, dosage $\in [0.3,1.5]$
+(transition zone) &
+20 &
+Bridges the diagonal clusters; fills the high-gradient
+boundary. \\
+\addlinespace
+Target $y \in [194,223]$ and $[303,398]$
+(thin deciles) &
+15 &
+These 4-sample deciles have the worst spacing and drive
+interpolation error. \\
+\addlinespace
+Target $y \in [595,936]$ and $[936,2251]$
+(high-performance tail) &
+15 &
+Total deficit = +75; high-value region most relevant to
+applications. \\
+\addlinespace
+Neighbours of sample~43 and sample~5
+(isolated extremes) &
+5 &
+Reduce NN-void contribution to extrapolation error. \\
+\midrule
+\textbf{Total minimum} & \textbf{55} & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Phased Roadmap}
+
+\begin{table}[h]
+\centering
+\caption{Phased data collection roadmap — Dataset~5.}
+\label{tab:ds5_roadmap}
+\begin{tabular}{rlrr}
+\toprule
+Phase & Action & Additional $n$ & Projected RMSE \\
+\midrule
+Current & Baseline dataset & 48 total & $193 \pm 73$ \\
+Phase 1 & +20 transition zone, +10 thin deciles & $+30$ & $\approx 150$--170 \\
+Phase 2 & +15 high-tail, +5 isolated neighbours  & $+20$ & $\approx 120$--140 \\
+Phase 3 & Stratified augmentation                & $+30$ & $\approx 90$--110 \\
+\midrule
+\textbf{Phase 3 total} & & \textbf{$\approx 128$} & \textbf{$\approx 100$} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% -----------------------------------------------------------------------
+\section{Dataset 5 — Summary and Comparison with Dataset 4}
+\label{sec:ds5_conclusions}
+% -----------------------------------------------------------------------
+
+\begin{table}[h]
+\centering
+\caption{Head-to-head comparison of Dataset~4 and Dataset~5.}
+\label{tab:ds5_comparison}
+\small
+\begin{tabular}{lrr}
+\toprule
+Metric & Dataset~4 & Dataset~5 \\
+\midrule
+$N$ (samples)                        & 56    & 48 \\
+$d$ (features)                       & 7     & 6 \\
+$d_\text{eff}$ (intrinsic dim.)      & 2.9   & 3.07 \\
+Target mean $\pm$ std                & $479 \pm 542$ & $436 \pm 518$ \\
+Target skewness                      & 2.13  & 2.27 \\
+\midrule
+10-trial mean RMSE                   & 279.9 & 193.0 \\
+10-trial RMSE std                    & 111.9 & 72.8 \\
+LOO-CV RMSE (original space)         & 345.9 & 248.8 \\
+LOO-CV $R^2$                         & 0.571 & 0.794 \\
+$k$-NN oracle RMSE                   & 328   & 310 \\
+\midrule
+Power-law exponent $b$               & $-0.166$ & $-0.465$ \\
+Variogram range (80\,\% sill)        & 2.37  & 2.50 \\
+Variogram nugget                     & $\approx 0$ & $\approx 21{,}000$ \\
+$\varepsilon$ for full connectivity  & 7.30  & 4.00 \\
+Max NN distance                      & 7.24  & 3.42 \\
+\midrule
+SSA importance                       & 0.203 & 0.384 \\
+Feature 1 Spearman $\rho$ (SSA)      & 0.766 & 0.820 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Key findings.}
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Dataset~5 yields markedly better prediction performance}
+        ($-$31\,\% RMSE, $+$39\,\% $R^2$ on LOO-CV) despite having
+        8 fewer samples and 1 fewer feature.  This suggests that the
+        ``Equilibrium time'' variable in Dataset~4 introduced noise
+        or redundancy rather than useful signal.
+
+  \item \textbf{The learning curve is no longer saturated.}  The steeper
+        power-law exponent ($-0.47$ vs.\ $-0.17$) means additional data
+        will produce substantial RMSE reductions.  Roughly 50 training
+        samples are needed for RMSE~$\leq 200$, compared with
+        $\approx 1{,}124$ in Dataset~4.
+
+  \item \textbf{Feature-space topology is more compact.}  Full connectivity
+        at $\varepsilon = 4.0$ (vs.\ 7.3) and a maximum NN distance of
+        3.42 (vs.\ 7.24) indicate fewer extreme voids, enabling more
+        reliable interpolation.
+
+  \item \textbf{SSA is the single most important feature} (importance 0.38,
+        Spearman $\rho = 0.820$), followed by Dosage ratio (0.30).
+        Together they account for 68\,\% of model importance.
+
+  \item \textbf{A non-zero variogram nugget ($\approx 21{,}000$)} appeared
+        in Dataset~5, suggesting modest measurement noise that places
+        a fundamental lower bound on achievable RMSE of approximately
+        $\sqrt{21{,}000} \approx 146$\,mg\,g$^{-1}$ — or lower if the
+        nugget is partly attributable to short-range spatial variability.
+
+  \item \textbf{Recommended minimum additional data: 55 targeted experiments}
+        (Phase~1+2), with a goal of reaching RMSE~$\approx 100$\,mg\,g$^{-1}$
+        at 128 total samples (Phase~3).
+\end{enumerate}
+
+% -----------------------------------------------------------------------
+% Model configuration for Dataset 5
+% -----------------------------------------------------------------------
+\section*{Appendix D: Dataset~5 Statistical Tests Summary}
+\label{app:ds5_stats}
+\addcontentsline{toc}{section}{Appendix D: Dataset~5 Statistical Tests Summary}
+
+\begin{table}[h]
+\centering
+\caption{Key statistical results — Dataset~5.}
+\label{tab:ds5_stats_summary}
+\begin{tabular}{lll}
+\toprule
+Metric & Value & Interpretation \\
+\midrule
+Test R$^2$ mean $\pm$ std & $0.638 \pm 0.535$ & Very high variance \\
+Test RMSE mean $\pm$ std & $193 \pm 73$ & CV = 0.38 \\
+LOO-CV RMSE (original space) & 248.8 & Near-unbiased, single estimate \\
+LOO-CV R$^2$ (original space) & 0.794 & Substantially better than 10-trial mean \\
+95\,\% Bootstrap CI (RMSE) & (149, 235) & $\pm$22\,\% of mean \\
+Test set Jaccard similarity & $0.115 \pm 0.091$ & Near-independent folds \\
+Pearson(RMSE, test mean) & $r = 0.375$ & Not significant ($p=0.285$) \\
+Pearson(R$^2$, test max) & $r = 0.622$ & Borderline ($p=0.055$) \\
+Power-law exponent & $-0.465$ & Near root-$n$ learning \\
+Power-law fit $r$ & $-0.957$ & Good fit \\
+\midrule
+Spearman(SSA, target) & $\rho = 0.820$ & Strongest feature \\
+Spearman(Dosage, target) & $\rho = 0.571$ & Second strongest \\
+Spearman(PV, target) & $\rho = 0.651$ & Third strongest \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The model configuration is identical to Dataset~4 (Appendix~\ref{app:model}):
+GradientBoostingRegressor with the same hyperparameters.
+
 % -----------------------------------------------------------------------
 \section*{Appendix C: Topological \& Nyquist Summary Statistics}
 \label{app:topo}
