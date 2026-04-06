@@ -27,7 +27,7 @@ Evaluation methodology (mirrors the stability-analysis notebook):
     final test_rmse / test_r2 fields; it is never touched during training.
 
   Additionally, Leave-One-Out CV is reported in the *same* original-space
-  units (via prepare.evaluate_loo_cv), providing a near-unbiased but
+  units (via prepare.evaluate_loo_cv), providing a deterministic but
   high-variance complementary estimate.
 """
 
