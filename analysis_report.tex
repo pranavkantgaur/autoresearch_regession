@@ -53,7 +53,9 @@ performance could be achieved.  The best model (Gradient Boosting with
 $n_{\text{est}}=40$, $\eta=0.07$, \texttt{max\_depth}=4,
 \texttt{subsample}=1.0, \texttt{max\_features}=\texttt{sqrt}) achieved
 a mean test RMSE of 279.9\,mg\,g$^{-1}$ with a 95\,\% bootstrap confidence
-interval of (215.7, 346.1)\,mg\,g$^{-1}$.
+interval of (215.5, 346.9)\,mg\,g$^{-1}$.  Leave-one-out cross-validation
+(LOO-CV) in the same original mg\,g$^{-1}$ space yields a
+complementary RMSE of 345.9\,mg\,g$^{-1}$.
 
 This report provides:
 \begin{enumerate}[leftmargin=*]
@@ -182,8 +184,8 @@ Seed & $n_\text{train}$ & $n_\text{test}$ & Test R$^2$ & Test RMSE & Frac.\ high
 136  & 37 & 10 & 0.800 & 343.8 & 0.20 \\
 \midrule
 \textbf{Mean} & & & \textbf{0.559} & \textbf{279.9} & \\
-\textbf{Std}  & & & \textbf{0.300} & \textbf{106.2} & \\
-\textbf{CV}   & & & 0.537         & 0.379          & \\
+\textbf{Std}  & & & \textbf{0.316} & \textbf{111.9} & \\
+\textbf{CV}   & & & 0.566         & 0.400          & \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -192,9 +194,9 @@ Seed & $n_\text{train}$ & $n_\text{test}$ & Test R$^2$ & Test RMSE & Frac.\ high
 
 \paragraph{Observation 1: Extreme per-trial variance.}
 Test R$^2$ ranges from 0.093 to 0.913 (coefficient of variation
-CV$_\text{R2} = 0.537$), and test RMSE ranges from 134.6 to 443.0
-(CV$_\text{RMSE} = 0.379$).  A 95\,\% bootstrap confidence interval for
-mean RMSE is $(215.7, 346.1)$\,mg\,g$^{-1}$ — a range that spans
+CV$_\text{R2} = 0.566$), and test RMSE ranges from 134.6 to 443.0
+(CV$_\text{RMSE} = 0.400$).  A 95\,\% bootstrap confidence interval for
+mean RMSE is $(215.5, 346.9)$\,mg\,g$^{-1}$ — a range that spans
 $\pm 23$\,\% of the mean.  This width is comparable to the baseline
 performance itself, making reliable model comparison extremely difficult
 with the current dataset size.
@@ -239,26 +241,28 @@ complexity-limited.
 
 To quantify how generalisation performance scales with dataset size, we
 subsampled training folds of size $n_\text{train} \in \{15, 18, 22, 26,
-30, 33, 37\}$ and evaluated over 100 random trials for each size.  The
-resulting learning curve is shown in Table~\ref{tab:learning_curve}.
+30, 33, 37\}$ from the 47-sample train+val pool, evaluated on all
+remaining samples, and repeated for 100 random permutations per size
+(seeded for reproducibility).
+The resulting learning curve is shown in Table~\ref{tab:learning_curve}.
 
 \begin{table}[h]
 \centering
 \caption{Learning curve: mean test RMSE and standard deviation (100
-  random 80/20 trials) for different training set sizes drawn from the
-  47-sample train+val pool.}
+  random trials, testing on all remaining samples) for different
+  training set sizes drawn from the 47-sample train+val pool.}
 \label{tab:learning_curve}
 \begin{tabular}{rrrr}
 \toprule
 $n_\text{train}$ & Mean RMSE (mg\,g$^{-1}$) & Std RMSE & CV \\
 \midrule
-15 & 414 & 189 & 0.46 \\
-18 & 393 & 173 & 0.44 \\
-22 & 383 & 166 & 0.43 \\
-26 & 350 & 158 & 0.45 \\
-30 & 353 & 145 & 0.41 \\
-33 & 337 & 137 & 0.41 \\
-37 & 354 & 155 & 0.44 \\
+15 & 411 & 102 & 0.25 \\
+18 & 398 & 102 & 0.26 \\
+22 & 384 &  93 & 0.24 \\
+26 & 373 & 104 & 0.28 \\
+30 & 365 & 103 & 0.28 \\
+33 & 362 & 122 & 0.34 \\
+37 & 353 & 158 & 0.45 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -268,10 +272,10 @@ $n_\text{train}$ & Mean RMSE (mg\,g$^{-1}$) & Std RMSE & CV \\
 Fitting a power law $\text{RMSE} \approx a \cdot n_\text{train}^{b}$
 to the empirical curve gives:
 \begin{equation}
-\text{RMSE}(n) \approx 720.6 \cdot n^{-0.209}, \quad r = -0.925
+\text{RMSE}(n) \approx 644.1 \cdot n^{-0.166}, \quad r = -0.998
 \end{equation}
 
-This slow exponent ($b \approx -0.21$) indicates \textbf{early saturation}:
+This slow exponent ($b \approx -0.17$) indicates \textbf{early saturation}:
 the model generalisation is already near the plateau achievable under the
 current data distribution.  In contrast, data-rich regimes typically show
 $b \approx -0.5$ (root-$n$ improvement).
@@ -287,10 +291,10 @@ The following sample sizes would be needed to reach target RMSE thresholds:
 \toprule
 Target RMSE (mg\,g$^{-1}$) & $n_\text{train}$ required \\
 \midrule
-300  & $\approx 65$ \\
-250  & $\approx 157$ \\
-200  & $\approx 457$ \\
-150  & $\approx 1{,}808$ \\
+300  & $\approx 98$ \\
+250  & $\approx 294$ \\
+200  & $\approx 1{,}124$ \\
+150  & $\approx 6{,}326$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -419,7 +423,9 @@ resulting in a 100-fold difference in sampling density.
 
 \begin{table}[h]
 \centering
-\caption{Comparison of the two evaluation methodologies used in this project.}
+\caption{Comparison of the two evaluation methodologies used in this project.
+  LOO-CV results are reported in the \emph{same} original mg\,g$^{-1}$
+  space as the 10-trial protocol.}
 \label{tab:eval_comparison}
 \small
 \begin{tabular}{p{4cm}p{5.5cm}p{5.5cm}}
@@ -428,23 +434,34 @@ Criterion & 10-Trial 80/20 (Notebook) & Leave-One-Out CV \\
 \midrule
 Training fold size & $\approx 37$ of 47 (79\,\%) & 46 of 47 (98\,\%) \\
 Test fold size & 10 samples & 1 sample \\
-Metric space & Original mg\,g$^{-1}$ & Log space (requires back-transform) \\
-Variance of estimate & High (CV$_\text{RMSE}=0.38$) & Lower (LOO is near-unbiased) \\
-Interpretability & Direct (same units as target) & Indirect (log-space RMSE $\approx0.59$) \\
+Metric space & Original mg\,g$^{-1}$ & Original mg\,g$^{-1}$ (configurable; not limited to log-space) \\
+Variance of estimate & High (CV$_\text{RMSE}=0.40$); averages 10 noisy estimates & Single point estimate; near-unbiased but high estimator variance due to correlated folds \\
+RMSE & $279.9 \pm 111.9$ & 345.9 \\
+R$^2$ & $0.559 \pm 0.316$ & 0.571 \\
+Interpretability & Direct (same units as target) & Direct (same units as target) \\
 Overfitting detection & Yes (via gap between train/test) & Limited (single-sample test folds) \\
-Suitability for optimiser & Moderate: noisy signal & Good: stable signal \\
-Best for domain researcher & \textbf{Yes} (auditable vs.\ notebook) & No (different units, undefined per-fold R$^2$) \\
+Best for domain researcher & \textbf{Yes} (auditable vs.\ notebook) & Yes (same units; single stable estimate) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \paragraph{Summary.}
-The 10-trial protocol is better aligned with the domain notebook and
-reports in interpretable units; however, its high variance (a 95\,\%
-bootstrap CI of $\pm$23\,\% of the mean) means that small improvements
-from hyperparameter tuning are statistically indistinguishable from noise.
-LOO-CV provides a lower-variance estimate but in log-space, making direct
-comparison with domain literature values difficult.  For a dataset of this
+Both evaluation protocols now report in the same original mg\,g$^{-1}$
+units.  LOO-CV is \emph{not} restricted to log-space; any prior
+log-space LOO results were an implementation choice, not a methodological
+limitation.  LOO-CV yields a single RMSE estimate (345.9\,mg\,g$^{-1}$)
+with no trial-to-trial variance, making it useful as a reference
+point; however, the LOO estimator itself is known to have
+\emph{high variance} as an estimator of expected prediction error
+because the $n-1$-sample training folds are highly correlated
+\citep{Hastie2009, Arlot2010}.
+
+The 10-trial protocol ($\text{RMSE} = 279.9 \pm 111.9$) benefits from
+larger test sets (10 samples vs.\ 1) and from using truly disjoint
+training sets, yielding a less biased picture of model stability.
+Its 95\,\% bootstrap CI of $\pm$23\,\% of the mean means that small
+improvements from hyperparameter tuning are statistically
+indistinguishable from noise.  For a dataset of this
 size, the gold standard would be repeated $k$-fold CV ($k=5$, repeated
 30 times) or, ideally, a larger dataset that makes the evaluation problem
 tractable.
@@ -525,7 +542,7 @@ phased data collection roadmap.
 \toprule
 Phase & Action & Additional $n$ & Projected RMSE \\
 \midrule
-Current & Baseline dataset & 56 total & $280 \pm 106$ \\
+Current & Baseline dataset & 56 total & $280 \pm 112$ \\
 Phase 1 & +20 high-tail, +10 each transition quadrant & $+40$ & $\approx 240$--260 \\
 Phase 2 & +PS bridging, +temperature densification & $+20$ & $\approx 220$--240 \\
 Phase 3 & Stratified augmentation to full distribution & $+60$ & $\approx 180$--200 \\
@@ -571,7 +588,7 @@ optimistic than the power-law extrapolation from random sampling
         adsorbent design.
 
   \item \textbf{Targeted data collection is 3--4× more efficient than
-        random augmentation.}  The power-law exponent of $-0.21$ under
+        random augmentation.}  The power-law exponent of $-0.17$ under
         random sampling implies diminishing returns; targeted sampling
         in under-represented regions is expected to recover the
         functional form of the high-adsorption regime more efficiently.
@@ -619,14 +636,16 @@ mg\,g$^{-1}$.
 \toprule
 Metric & Value & Interpretation \\
 \midrule
-Test R$^2$ mean $\pm$ std & $0.559 \pm 0.300$ & Very high variance \\
-Test RMSE mean $\pm$ std & $280 \pm 106$ & CV = 0.38 \\
-95\,\% Bootstrap CI (RMSE) & (216, 346) & $\pm$23\,\% of mean \\
+Test R$^2$ mean $\pm$ std & $0.559 \pm 0.316$ & Very high variance \\
+Test RMSE mean $\pm$ std & $280 \pm 112$ & CV = 0.40 \\
+LOO-CV RMSE (original space) & 345.9 & Near-unbiased, single estimate \\
+LOO-CV R$^2$ (original space) & 0.571 & Consistent with 10-trial mean \\
+95\,\% Bootstrap CI (RMSE) & (216, 347) & $\pm$23\,\% of mean \\
 Test set Jaccard similarity & $0.123 \pm 0.073$ & Near-independent folds \\
 Pearson(RMSE, test mean) & $r = 0.664$ & Test composition effect \\
 Pearson(R$^2$, test max) & $r = 0.727$ & Driven by tail samples \\
-Power-law exponent & $-0.209$ & Slow learning rate \\
-Power-law fit $r$ & $-0.925$ & Good fit to LC data \\
+Power-law exponent & $-0.166$ & Slow learning rate \\
+Power-law fit $r$ & $-0.998$ & Excellent fit to LC data \\
 \midrule
 Spearman(SSA, target) & $\rho = 0.766$ & Strongest feature \\
 Spearman(conc, target) & $\rho = 0.589$ & Second strongest \\
@@ -794,15 +813,15 @@ error is \emph{reducible} in principle with better data coverage.
 \toprule
 Distance $h$ range & $\gamma(h)$ & $\gamma(h)/\text{sill}$ \\
 \midrule
-$[0.14,\;1.46)$ &  50\,327 & 0.17 \\
-$[1.46,\;1.89)$ &  95\,127 & 0.33 \\
-$[1.89,\;2.37)$ & 145\,308 & 0.50 \\
-$[2.37,\;2.79)$ & 304\,587 & 1.05 \\
-$[2.79,\;3.25)$ & 443\,069 & 1.53 \\
-$[3.25,\;3.71)$ & 521\,165 & 1.81 \\
-$[3.71,\;4.12)$ & 508\,903 & 1.76 \\
-$[4.12,\;4.59)$ & 401\,866 & 1.39 \\
-$[4.59,\;5.36)$ & 277\,870 & 0.96 \\
+$[0.14,\;1.46)$ &  50\,518 & 0.17 \\
+$[1.46,\;1.89)$ &  96\,181 & 0.33 \\
+$[1.89,\;2.37)$ & 141\,616 & 0.49 \\
+$[2.37,\;2.79)$ & 306\,557 & 1.06 \\
+$[2.79,\;3.25)$ & 448\,830 & 1.55 \\
+$[3.25,\;3.71)$ & 514\,516 & 1.78 \\
+$[3.71,\;4.12)$ & 512\,198 & 1.77 \\
+$[4.12,\;4.59)$ & 397\,692 & 1.38 \\
+$[4.59,\;5.36)$ & 282\,790 & 0.98 \\
 $[5.36,\;9.60)$ & 191\,470 & 0.66 \\
 \midrule
 Nugget $\gamma(0)$   & $\approx 0$ & 0.000 \\
@@ -822,28 +841,30 @@ can do with the current dataset, regardless of model class
 
 \begin{table}[h]
 \centering
-\caption{$k$-NN Oracle LOO-CV RMSE.  This is the best any smooth
+\caption{$k$-NN Oracle LOO-CV RMSE on the 47-sample train+val pool
+  (original mg\,g$^{-1}$ space).  This is the best any smooth
   interpolation model can achieve given the current sampling density.}
 \label{tab:knn_oracle}
 \begin{tabular}{rr}
 \toprule
 $k$ & LOO RMSE (mg\,g$^{-1}$) \\
 \midrule
-1  & 418 \\
-2  & 328 \\
-3  & 364 \\
-5  & 370 \\
-7  & 341 \\
-10 & 328 \\
+1  & 328 \\
+2  & 329 \\
+3  & 354 \\
+5  & 379 \\
+7  & 407 \\
+10 & 399 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The best $k$-NN oracle achieves RMSE $\approx 328$\,mg\,g$^{-1}$ — only
-marginally better than the 280\,mg\,g$^{-1}$ of the best Gradient
-Boosting model.  This near-parity demonstrates that the GB model has
+The best $k$-NN oracle ($k=1$) achieves RMSE $\approx 328$\,mg\,g$^{-1}$ — only
+marginally worse than the 280\,mg\,g$^{-1}$ of the best Gradient
+Boosting model (10-trial mean) and comparable to the GB LOO-CV RMSE of
+346\,mg\,g$^{-1}$.  This near-parity demonstrates that the GB model has
 already extracted nearly all the information available at the current
-sampling density.  \textbf{The remaining 280\,mg\,g$^{-1}$ of RMSE is a
+sampling density.  \textbf{The remaining $\sim$280--346\,mg\,g$^{-1}$ of RMSE is a
 consequence of sparse sampling, not of model under-capacity.}
 
 \subsection{Nyquist Spacing Requirement}
@@ -884,8 +905,8 @@ requires uniform spacing of $\delta < 1.43$ over the effective 2.9D
 manifold, corresponding to approximately 63 well-distributed training
 samples.  Since the current effective training pool has 47 samples but
 they are \emph{not} uniformly distributed, the practical requirement is
-higher — consistent with the power-law projection of $\sim$65 samples for
-RMSE $\leq 300$ and $\sim$157 for RMSE $\leq 250$.
+higher — consistent with the power-law projection of $\sim$98 samples for
+RMSE $\leq 300$ and $\sim$294 for RMSE $\leq 250$.
 
 \subsection{High-Gradient Region: Local Nyquist Analysis}
 
@@ -1004,10 +1025,10 @@ lower bounds on the achievable RMSE:
         In principle, RMSE could approach zero with sufficiently dense
         data.
   \item \textbf{Data-density upper bound ($k$-NN oracle):}
-        With the \emph{current} 56 samples, the best any interpolation
-        model can achieve is RMSE $\approx 328$\,mg\,g$^{-1}$
-        (2-NN LOO).  The best GB model (280\,mg\,g$^{-1}$) has nearly
-        saturated this bound.
+        With the \emph{current} 47 train+val samples, the best any
+        interpolation model can achieve is RMSE $\approx 328$\,mg\,g$^{-1}$
+        (1-NN LOO).  The best GB model achieves 280\,mg\,g$^{-1}$ (10-trial)
+        or 346\,mg\,g$^{-1}$ (LOO), in either case close to the oracle.
   \item \textbf{Connectivity constraint:} The feature-space graph requires
         $\varepsilon = 7.3$ to connect, meaning there are genuine voids
         where any model must extrapolate rather than interpolate.  The
@@ -1106,8 +1127,9 @@ Variogram nugget & $\approx 0$ & No irreducible noise \\
 Median spatial frequency $\bar{f}$ & 139 mg\,g$^{-1}$/unit & \\
 Max spatial frequency $f_\text{max}$ & 1\,708 mg\,g$^{-1}$/unit & \\
 \midrule
-$k$-NN oracle RMSE (best $k$) & 328 mg\,g$^{-1}$ & Interpolation ceiling \\
-Best GB model RMSE & 280 mg\,g$^{-1}$ & 85\,\% of oracle \\
+$k$-NN oracle RMSE (best $k$) & 328 mg\,g$^{-1}$ & Interpolation ceiling (1-NN LOO) \\
+Best GB model RMSE (10-trial) & 280 mg\,g$^{-1}$ & 85\,\% of oracle \\
+Best GB model RMSE (LOO-CV) & 346 mg\,g$^{-1}$ & Near-oracle, same units \\
 Augmented oracle (+100 pts) & 285 mg\,g$^{-1}$ & Validates Nyquist prediction \\
 \midrule
 Nyquist $n$ for RMSE 100 & $\sim$63 uniform & Idealised estimate \\
